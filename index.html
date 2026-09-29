@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Critical Zone 음성점검</title>
+<title>Critical Zone Check</title>
 <style>:root{color-scheme:light}html,body{height:100%;margin:0}body{font-size:14px}[hidden]{display:none!important}</style>
 </head>
 <body>
@@ -157,6 +157,11 @@ button.chip{border:0;cursor:pointer}
 .vrow input[type=range]{width:100%;accent-color:var(--accent)}
 details.card>summary{cursor:pointer;font-weight:700}
 .jumps{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.bi{display:block;line-height:1.2}
+.bi small{display:block;font-size:.78em;font-weight:400;opacity:.85;margin-top:1px;letter-spacing:0;text-transform:none}
+.bi-i{font-size:.8em;font-weight:400;opacity:.85;letter-spacing:0;text-transform:none}
+.pill .bi-i{font-size:.95em}
+.rule label span{font-family:var(--font-num);font-size:.85rem}
 .jumps button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 13px;font-size:.85rem;font-weight:500}
 </style>
 
@@ -164,21 +169,21 @@ details.card>summary{cursor:pointer;font-weight:700}
   <header class="top">
     <div class="brand">
       <span class="brand-mark">CZ</span>
-      <div><h1>The Critical Zone</h1><p>음성 점검 기록 · 시제품</p></div>
+      <div><h1>The Critical Zone</h1><p id="brandSub"></p></div>
     </div>
     <div class="when" id="when"></div>
   </header>
   <div class="modebar">
-    <div class="seg" role="group" aria-label="입력 방식">
-      <button type="button" data-mode="form" id="m-form" aria-pressed="true">일반 모드</button>
-      <button type="button" data-mode="voice" id="m-voice" aria-pressed="false">음성 모드</button>
+    <div class="seg" role="group" aria-label="Input mode">
+      <button type="button" data-mode="form" id="m-form" aria-pressed="true"></button>
+      <button type="button" data-mode="voice" id="m-voice" aria-pressed="false"></button>
     </div>
-    <p>시끄러운 곳은 일반, 조용한 곳은 음성. 기록은 두 모드가 함께 씁니다.</p>
+    <p id="modeHelp"></p>
   </div>
-  <nav class="tabs" role="tablist" aria-label="화면">
-    <button role="tab" id="t-run" data-tab="run" aria-selected="true">점검</button>
-    <button role="tab" id="t-log" data-tab="log" aria-selected="false">기록</button>
-    <button role="tab" id="t-rules" data-tab="rules" aria-selected="false">기준치</button>
+  <nav class="tabs" role="tablist" aria-label="Screens">
+    <button role="tab" id="t-run" data-tab="run" aria-selected="true"></button>
+    <button role="tab" id="t-log" data-tab="log" aria-selected="false"></button>
+    <button role="tab" id="t-rules" data-tab="rules" aria-selected="false"></button>
   </nav>
   <main>
     <section id="tab-run" aria-labelledby="t-run"><div id="runBody"></div><div id="vsetWrap" hidden style="margin-top:14px"></div></section>
@@ -187,25 +192,15 @@ details.card>summary{cursor:pointer;font-weight:700}
   </main>
   <div class="dock" id="dock">
     <div class="dock-top">
-      <button class="mic" id="mic" type="button" data-state="idle" aria-label="마이크">
+      <button class="mic" id="mic" type="button" data-state="idle" aria-label="Microphone">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
       </button>
-      <div class="status"><b id="stateLbl">대기</b><span id="interim"></span></div>
+      <div class="status"><b id="stateLbl"></b><span id="interim"></span></div>
     </div>
-    <div class="quick" id="quick">
-      <button type="button" data-q="예">예</button>
-      <button type="button" data-q="아니요">아니요</button>
-      <button type="button" data-q="그대로">그대로</button>
-      <button type="button" data-q="건너뛰기">건너뛰기</button>
-      <button type="button" data-q="뒤로">뒤로</button>
-      <button type="button" data-q="다시 읽어줘">다시 듣기</button>
-      <button type="button" data-q="천천히">천천히</button>
-      <button type="button" data-q="빠르게">빠르게</button>
-      <button type="button" data-q="일시정지">일시정지</button>
-    </div>
+    <div class="quick" id="quick"></div>
     <form class="say" id="sayForm" autocomplete="off">
-      <input id="say" type="text" inputmode="text" placeholder="말 대신 입력하기 (예: 38, 예, 아니요)" aria-label="답변 입력">
-      <button class="btn primary" type="submit">보내기</button>
+      <input id="say" type="text" inputmode="text" placeholder="Type instead of speaking" aria-label="Type an answer">
+      <button class="btn primary" type="submit" id="sendBtn">Send</button>
     </form>
   </div>
 </div>
@@ -224,12 +219,12 @@ var store = {
 
 /* ================= 서류 항목 (Critical Zone Update.xlsx 기반) ================= */
 var DEFAULT_RULES = {
-  cooler:  {label:'냉장 (쿨러·리치인·워크인)', max:41},
-  freezer: {label:'냉동고', max:0},
-  coldhold:{label:'냉장 보관 제품 내부온도', max:41},
-  hothold: {label:'핫홀드 제품 내부온도', min:135},
-  sani:    {label:'염소 소독액 (ppm)', min:50, max:100},
-  dish:    {label:'식기세척기 (롤리팝 스트립)', min:160}
+  cooler:  {en:'Coolers (walk-in · reach-in)', ko:'냉장 (쿨러·리치인·워크인)', max:41},
+  freezer: {en:'Freezers', ko:'냉동고', max:0},
+  coldhold:{en:'Cold-held product internal temp', ko:'냉장 보관 제품 내부온도', max:41},
+  hothold: {en:'Hot-held product internal temp', ko:'핫홀드 제품 내부온도', min:135},
+  sani:    {en:'Chlorine sanitizer (ppm)', ko:'염소 소독액 (ppm)', min:50, max:100},
+  dish:    {en:'Dish machine (lollipop strip)', ko:'식기세척기 (롤리팝 스트립)', min:160}
 };
 var SECS = {
   head:{ko:'시작',en:'Start'},
@@ -301,20 +296,40 @@ add({sec:'line',type:'text',key:'linenotes',nm:'행동 관찰·라인 체크 특
 var now = new Date();
 var S = {
   running:false, paused:false, idx:0, phase:'idle', pend:null, trail:[], rec:{},
-  lang:'ko', shift: now.getHours()<15?'lunch':'dinner',
+  lang:'en', unit:'F', ui:'bi', shift: now.getHours()<15?'lunch':'dinner',
   mic:!!SR, micNote:'', tts:('speechSynthesis' in window), handsFree:true, autoYN:true, rate:1,
   rules:JSON.parse(JSON.stringify(DEFAULT_RULES)), startSec:null,
   chat:[], state:'idle', token:0, silent:0, tab:'run', done:false, mode:'form', openSec:{}, fmsg:{}, voice:{ko:null,en:null}
 };
 var saved = store.get('cz-settings');
-if(saved){ if(saved.rules) S.rules=saved.rules; ['lang','handsFree','autoYN','rate','mode'].forEach(function(k){ if(saved[k]!=null) S[k]=saved[k]; }); if(saved.voice) S.voice=saved.voice; }
-function saveSettings(){ store.set('cz-settings',{rules:S.rules,lang:S.lang,handsFree:S.handsFree,autoYN:S.autoYN,rate:S.rate,mode:S.mode,voice:S.voice}); }
+if(saved){
+  if(saved.rules) Object.keys(S.rules).forEach(function(k){ var o=saved.rules[k]; if(!o) return; ['min','max'].forEach(function(m){ if(m in S.rules[k]&&typeof o[m]==='number') S.rules[k][m]=o[m]; }); });
+  ['lang','handsFree','autoYN','rate','mode','unit','ui'].forEach(function(k){ if(saved[k]!=null) S[k]=saved[k]; }); if(saved.voice) S.voice=saved.voice;
+}
+function saveSettings(){ store.set('cz-settings',{rules:S.rules,lang:S.lang,handsFree:S.handsFree,autoYN:S.autoYN,rate:S.rate,mode:S.mode,voice:S.voice,unit:S.unit,ui:S.ui}); }
 function dateKey(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function recKey(){ return 'cz-rec-'+dateKey()+'-'+S.shift; }
 function saveRec(){ store.set(recKey(),S.rec); }
 function loadRec(){ S.rec=store.get(recKey())||{}; }
 loadRec();
 function cur(){ return ITEMS[S.idx]; }
+/* bilingual text: English first, Korean small underneath (S.ui: bi | en | ko) */
+function B(en,ko){ if(S.ui==='en') return esc(en); if(S.ui==='ko') return esc(ko); return '<span class="bi">'+esc(en)+'<small>'+esc(ko)+'</small></span>'; }
+function Bi(en,ko){ if(S.ui==='en') return esc(en); if(S.ui==='ko') return esc(ko); return esc(en)+' <small class="bi-i">'+esc(ko)+'</small>'; }
+function P(en,ko){ if(S.ui==='en') return en; if(S.ui==='ko') return ko; return en+' / '+ko; }
+/* temperatures are stored in °F; shown and entered in S.unit */
+function fToC(f){ return (f-32)*5/9; }
+function cToF(c){ return c*9/5+32; }
+function r1(x){ return Math.round(x*10)/10; }
+function isTemp(it){ return it.unit!=='ppm'; }
+function dv(it,v){ if(typeof v!=='number') return v; if(!isTemp(it)) return v; return r1(S.unit==='C'?fToC(v):v); }
+function inF(it,v){ if(!isTemp(it)||S.unit!=='C') return v; return Math.round(cToF(v)*100)/100; }
+function unitOf(it){ return isTemp(it)?'°'+S.unit:'ppm'; }
+function dual(it,v){
+  if(!isTemp(it)) return v+' ppm';
+  var f=r1(v), c=r1(fToC(v));
+  return S.unit==='C'?c+'°C ('+f+'°F)':f+'°F ('+c+'°C)';
+}
 
 /* ================= 파싱 ================= */
 var KD={'영':0,'공':0,'일':1,'이':2,'삼':3,'사':4,'오':5,'육':6,'륙':6,'칠':7,'팔':8,'구':9};
@@ -358,7 +373,7 @@ function parseNum(raw){
       v=a;
       if(parts.length>1&&parts[1]){ var dec=''; for(var i=0;i<parts[1].length;i++){ var c=parts[1][i]; if(c in KD) dec+=KD[c]; else { dec=null; break; } } if(dec) v=parseFloat(a+'.'+dec); }
     } else {
-      var toks=s.replace(/[^a-z\s-]/g,' ').replace(/-/g,' ').split(/\s+/).filter(Boolean);
+      var toks=s.replace(/[^a-z\s-]/g,' ').replace(/-/g,' ').split(/\s+/).filter(Boolean).filter(function(w){return !/^(degrees?|celsius|fahrenheit|centigrade|ppm)$/.test(w);});
       var pi=toks.indexOf('point');
       var head=pi>=0?toks.slice(0,pi):toks; var tail=pi>=0?toks.slice(pi+1):[];
       var e=enInt(head);
@@ -394,6 +409,13 @@ function parseYN(t){
   return null;
 }
 function plaus(it){ return it.unit==='ppm'?[0,2000]:[-80,500]; }
+function pn(t,it){
+  var v=parseNum(t); if(v===null) return null;
+  if(!isTemp(it)) return v;
+  var u=S.unit;
+  if(/섭씨|℃|°\s*c\b|celsius|centigrade/i.test(t)) u='C'; else if(/화씨|℉|°\s*f\b|fahrenheit/i.test(t)) u='F';
+  return u==='C'?Math.round(cToF(v)*100)/100:v;
+}
 function evalRule(rule,v){
   var r=S.rules[rule]; if(!r) return 'ok';
   if(r.min!=null&&v<r.min) return 'low';
@@ -401,26 +423,40 @@ function evalRule(rule,v){
   return 'ok';
 }
 function ruleText(rule){
-  var r=S.rules[rule]; if(!r) return '기준 없음 · 기록만';
-  var u=rule==='sani'?' ppm':'°F';
-  if(r.min!=null&&r.max!=null) return r.min+'–'+r.max+u;
-  if(r.max!=null) return '≤ '+r.max+u;
-  return '≥ '+r.min+u;
+  var r=S.rules[rule]; if(!r) return P('No limit · record only','기준 없음 · 기록만');
+  if(rule==='sani'){
+    if(r.min!=null&&r.max!=null) return r.min+'–'+r.max+' ppm';
+    if(r.max!=null) return '≤ '+r.max+' ppm';
+    return '≥ '+r.min+' ppm';
+  }
+  function one(u){
+    var cv=function(x){ return r1(u==='C'?fToC(x):x); };
+    if(r.min!=null&&r.max!=null) return cv(r.min)+'–'+cv(r.max)+'°'+u;
+    if(r.max!=null) return '≤ '+cv(r.max)+'°'+u;
+    return '≥ '+cv(r.min)+'°'+u;
+  }
+  var o=S.unit==='C'?'F':'C';
+  return one(S.unit)+' ('+one(o)+')';
 }
 
 /* ================= 말하기 문구 ================= */
 function fmt(it,v){
   var ko=S.lang==='ko';
   if(it.unit==='ppm') return ko? v+' 피피엠' : v+' p p m';
-  if(ko) return v<0? '영하 '+(-v)+'도' : v+'도';
-  return (v<0?'minus '+(-v):v)+' degrees';
+  var x=dv(it,v), C=S.unit==='C';
+  if(ko) return (C?'섭씨 ':'화씨 ')+(x<0? '영하 '+(-x) : x)+'도';
+  return (x<0?'minus '+(-x):x)+' degrees '+(C?'Celsius':'Fahrenheit');
 }
 function ruleSpeak(it){
   var r=S.rules[it.rule]; if(!r) return '';
-  var ko=S.lang==='ko', u=it.unit==='ppm'?(ko?'피피엠':'p p m'):(ko?'도':'degrees');
-  if(r.min!=null&&r.max!=null) return ko? r.min+'에서 '+r.max+u : r.min+' to '+r.max+' '+u;
-  if(r.max!=null) return ko? r.max+u+' 이하' : r.max+' '+u+' or below';
-  return ko? r.min+u+' 이상' : r.min+' '+u+' or above';
+  var ko=S.lang==='ko', ppm=it.unit==='ppm', C=S.unit==='C';
+  var cv=function(x){ return ppm?x:r1(C?fToC(x):x); };
+  var lo=r.min!=null?cv(r.min):null, hi=r.max!=null?cv(r.max):null;
+  var u=ppm?(ko?'피피엠':'p p m'):(ko?'도':(C?'degrees Celsius':'degrees Fahrenheit'));
+  var pre=(!ppm&&ko)?(C?'섭씨 ':'화씨 '):'';
+  if(lo!==null&&hi!==null) return ko? pre+lo+'에서 '+hi+u : lo+' to '+hi+' '+u;
+  if(hi!==null) return ko? pre+hi+u+' 이하' : hi+' '+u+' or below';
+  return ko? pre+lo+u+' 이상' : lo+' '+u+' or above';
 }
 var TT={
  ko:{
@@ -469,7 +505,13 @@ function promptOf(it){
 
 /* ================= 음성 입출력 ================= */
 var R=null;
-function setState(s){ S.state=s; var mic=$('#mic'); mic.dataset.state=s; var lbl={idle:'대기 · 마이크를 누르세요',speaking:'읽는 중',listening:'듣는 중'}[s]||''; if(!S.mic&&s==='idle') lbl='입력창이나 버튼으로 답하세요'; if(S.paused) lbl='일시정지'; $('#stateLbl').textContent=lbl; }
+function setState(s){
+  S.state=s; var mic=$('#mic'); mic.dataset.state=s;
+  var l={idle:['Tap the mic','마이크를 누르세요'],speaking:['Reading','읽는 중'],listening:['Listening','듣는 중']}[s]||['',''];
+  if(!S.mic&&s==='idle') l=['Answer with the box or buttons','입력창이나 버튼으로 답하세요'];
+  if(S.paused) l=['Paused','일시정지'];
+  $('#stateLbl').innerHTML=B(l[0],l[1]);
+}
 function voiceList(){
   var vs=[]; try{ if('speechSynthesis' in window&&typeof speechSynthesis.getVoices==='function') vs=speechSynthesis.getVoices()||[]; }catch(e){}
   var pre=S.lang==='ko'?'ko':'en';
@@ -493,25 +535,25 @@ function speechClean(t){
   if(S.lang!=='en') return t;
   return t.replace(/\s*\(([^)]*)\)/g,', $1').replace(/\s-\s/g,', ').replace(/#(\d+)/g,'number $1').replace(/\s\/\s/g,' and ').replace(/\bw\//g,'with');
 }
-function fmtRate(){ return (Math.round(S.rate*100)/100)+'배'; }
+function fmtRate(){ return (Math.round(S.rate*100)/100)+'×'; }
 function syncRate(){ var r=$('#rateRange'); if(r) r.value=S.rate; var v=$('#rateVal'); if(v) v.textContent=fmtRate(); }
 function renderVset(){
   var w=$('#vsetWrap'); if(!w) return;
   var d0=w.querySelector('details'), wasOpen=!!(d0&&d0.open);
   var list=voiceList(), cur=pickVoice(), ko=S.lang==='ko';
-  var opts=list.length?list.map(function(v){ return '<option value="'+esc(v.voiceURI)+'"'+(cur&&cur.voiceURI===v.voiceURI?' selected':'')+'>'+esc(v.name)+' ('+esc(v.lang)+')'+(v.localService===false?' · 온라인':'')+'</option>'; }).join(''):'<option value="">이 기기에서 음성을 찾지 못했어요</option>';
+  var opts=list.length?list.map(function(v){ return '<option value="'+esc(v.voiceURI)+'"'+(cur&&cur.voiceURI===v.voiceURI?' selected':'')+'>'+esc(v.name)+' ('+esc(v.lang)+')'+(v.localService===false?' · online':'')+'</option>'; }).join(''):'<option value="">'+esc(P('No voices found on this device','이 기기에서 음성을 찾지 못했어요'))+'</option>';
   var note=list.length
-    ? '목소리는 이 휴대폰에 설치된 음성 중에서 고를 수 있어요. 더 자연스러운 음성은 휴대폰 설정의 텍스트 음성 변환에서 음성 데이터를 설치하면 목록에 나타날 수 있어요.'
-    : (ko?'한국어':'영어')+' 음성을 찾지 못했어요. 휴대폰 설정의 텍스트 음성 변환에서 음성 데이터를 설치해 보세요.';
-  w.innerHTML='<details class="card" id="vset"'+(wasOpen?' open':'')+'><summary>음성 설정 <small class="muted">목소리 · 속도</small></summary>'
-   +'<div class="vrow"><label for="voiceSel">목소리 ('+(ko?'한국어':'English')+')</label><select id="voiceSel">'+opts+'</select></div>'
-   +'<div class="vrow"><label for="rateRange">읽는 속도 <b id="rateVal">'+esc(fmtRate())+'</b></label><input type="range" id="rateRange" min="0.6" max="1.6" step="0.05" value="'+S.rate+'"></div>'
-   +'<div class="row" style="margin-top:12px"><button class="btn small" id="btnTest" type="button">들어보기</button></div>'
-   +'<p class="small muted" style="margin:10px 0 0">'+esc(note)+'</p></details>';
+    ? B('You can pick from the voices installed on this phone. For more natural voices, install voice data under Text-to-speech in the phone settings; it may then appear in this list.','목소리는 이 휴대폰에 설치된 음성 중에서 고를 수 있어요. 더 자연스러운 음성은 휴대폰 설정의 텍스트 음성 변환에서 음성 데이터를 설치하면 목록에 나타날 수 있어요.')
+    : B('No '+(ko?'Korean':'English')+' voice found. Install voice data under Text-to-speech in the phone settings.',(ko?'한국어':'영어')+' 음성을 찾지 못했어요. 휴대폰 설정의 텍스트 음성 변환에서 음성 데이터를 설치해 보세요.');
+  w.innerHTML='<details class="card" id="vset"'+(wasOpen?' open':'')+'><summary>'+Bi('Voice settings','음성 설정')+'</summary>'
+   +'<div class="vrow"><label for="voiceSel">'+B('Voice ('+(ko?'Korean':'English')+')','목소리 ('+(ko?'한국어':'English')+')')+'</label><select id="voiceSel">'+opts+'</select></div>'
+   +'<div class="vrow"><label for="rateRange"><span>'+B('Reading speed','읽는 속도')+'</span> <b id="rateVal">'+esc(fmtRate())+'</b></label><input type="range" id="rateRange" min="0.6" max="1.6" step="0.05" value="'+S.rate+'"></div>'
+   +'<div class="row" style="margin-top:12px"><button class="btn small" id="btnTest" type="button">'+B('Play sample','들어보기')+'</button></div>'
+   +'<p class="small muted" style="margin:10px 0 0">'+note+'</p></details>';
 }
 function testVoice(){
   stopListen(); S.token++;
-  var sample=S.lang==='ko'?'안녕하세요. 워크인 냉장고 온도는 삼십팔 도입니다. 맞으면 예라고 답해 주세요.':'Hello. The walk-in cooler reads thirty eight degrees. Say yes if that is correct.';
+  var sample=S.lang==='ko'?'안녕하세요. 워크인 냉장고 온도는 '+fmt({unit:'°F'},38)+'입니다. 맞으면 예라고 답해 주세요.':'Hello. The walk-in cooler reads '+fmt({unit:'°F'},38)+'. Say yes if that is correct.';
   setState('speaking'); speak(sample).then(function(){ setState('idle'); });
 }
 function speak(text){
@@ -550,7 +592,7 @@ function listen(force){
   };
   r.onerror=function(e){
     if(e.error==='not-allowed'||e.error==='service-not-allowed'){
-      S.mic=false; S.micNote='이 화면에서는 마이크를 쓸 수 없어 입력창과 버튼으로 진행합니다. 브라우저에서 마이크를 허용했는지 확인해 주세요.'; render();
+      S.mic=false; S.micNote=P('The microphone is not available on this screen, so continue with the text box and buttons. Check that the browser allows the microphone.','이 화면에서는 마이크를 쓸 수 없어 입력창과 버튼으로 진행합니다. 브라우저에서 마이크를 허용했는지 확인해 주세요.'); render();
     }
   };
   r.onend=function(){
@@ -680,7 +722,7 @@ var H={
       }
       toAction('fail','No'); return reply(T('failAsk'));
     }
-    if(it.type==='num') return handleValue(parseNum(t),alts);
+    if(it.type==='num') return handleValue(pn(t,it),alts);
     if(it.type==='text'){
       if(RE.later.test(t.trim())){ commit({status:'ok',value:'-'}); return nextItem(T('noneNote')); }
       S.phase='confirm'; S.pend={kind:'text',text:t}; return reply(T('textRead',t));
@@ -689,8 +731,8 @@ var H={
   confirm:function(t,alts){
     var p=S.pend, it=cur(), y=parseYN(t);
     if(p.kind==='val'){
-      var nv=parseNum(t);
-      if(nv!==null){ if(y==='y'&&nv===p.v) return acceptPend(); return handleValue(nv,alts); }
+      var nv=pn(t,it);
+      if(nv!==null){ if(y==='y'&&Math.abs(nv-p.v)<0.05) return acceptPend(); return handleValue(nv,alts); }
     }
     if(y==='y') return acceptPend();
     if(y==='n'){
@@ -698,13 +740,13 @@ var H={
       if(p.kind==='val') S.trail.push({v:p.v,at:new Date().toISOString(),why:'정정 전 값'});
       S.phase='ask'; S.pend=null; return reply(T('again'));
     }
-    if(p.kind==='val'){ var v=parseNum(t); if(v!==null) return handleValue(v,alts); }
+    if(p.kind==='val'){ var v=pn(t,it); if(v!==null) return handleValue(v,alts); }
     if(p.kind==='text'){ S.pend={kind:'text',text:t}; return reply(T('textRead',t)); }
     if(p.kind==='actionConfirm'){ S.pend=Object.assign({},p,{text:t}); return reply(T('actionRead',t)); }
     return reply(T('needYN'));
   },
   oor:function(t,alts){
-    var v=parseNum(t), y=parseYN(t);
+    var v=pn(t,cur()), y=parseYN(t);
     if(RE.keep.test(t)||(y==='y'&&v===null)){ toAction('out',S.pend.v); return reply(T('actionAsk')); }
     if(v!==null) return handleValue(v,alts);
     if(RE.redo.test(t)||y==='n'){ S.trail.push({v:S.pend.v,at:new Date().toISOString(),why:'기준 이탈 후 재측정'}); S.pend=null; S.phase='ask'; return reply(T('remeasure')); }
@@ -723,7 +765,7 @@ var H={
     if(RE.doneForce.test(t)) return finishMulti(true);
     if(RE.done.test(t.trim())) return finishMulti(false);
     if(RE.undo.test(t.trim())){ var x=p.vals.pop(); render(); return reply(T('undone',x?fmt(it,x.v):'')); }
-    var v=parseNum(t); if(v===null) return reply(T('multiHelp'));
+    var v=pn(t,it); if(v===null) return reply(T('multiHelp'));
     var lim=plaus(it); if(v<lim[0]||v>lim[1]) return reply(T('implaus'));
     var st=evalRule(it.rule,v); p.vals.push({v:v,st:st}); render();
     return reply(p.vals.length+T('nth')+' '+fmt(it,v)+(st!=='ok'?T('outShort'):''));
@@ -765,11 +807,21 @@ function route(text,alts){
 /* ================= 화면 ================= */
 function pillFor(r){
   if(!r) return '';
-  if(r.status==='ok') return '<span class="pill ok">정상</span>';
-  if(r.status==='skip') return '<span class="pill skip">건너뜀</span>';
-  if(r.status==='fail') return '<span class="pill bad">아니요</span>';
-  if(r.status==='short') return '<span class="pill warn">5회 미달</span>';
-  return '<span class="pill bad">기준 이탈</span>';
+  if(r.status==='ok') return '<span class="pill ok">'+Bi('OK','정상')+'</span>';
+  if(r.status==='skip') return '<span class="pill skip">'+Bi('Skipped','건너뜀')+'</span>';
+  if(r.status==='fail') return '<span class="pill bad">'+Bi('No','아니요')+'</span>';
+  if(r.status==='short') return '<span class="pill warn">'+Bi('Under 5','5회 미달')+'</span>';
+  return '<span class="pill bad">'+Bi('Out of range','기준 이탈')+'</span>';
+}
+function shiftHtml(){ return S.shift==='lunch'?Bi('Lunch','점심'):Bi('Dinner','저녁'); }
+function shiftSeg(){
+  return '<div class="field"><span class="eyebrow">'+B('Shift','근무')+'</span><div class="seg" role="group" aria-label="'+esc(P('Shift','근무'))+'"><button type="button" data-shift="lunch" aria-pressed="'+(S.shift==='lunch')+'">'+B('Lunch','점심')+'</button><button type="button" data-shift="dinner" aria-pressed="'+(S.shift==='dinner')+'">'+B('Dinner','저녁')+'</button></div></div>';
+}
+function langSeg(){
+  return '<div class="field"><span class="eyebrow">'+B('Question language','질문 언어')+'</span><div class="seg" role="group" aria-label="'+esc(P('Language','언어'))+'"><button type="button" data-lang="ko" aria-pressed="'+(S.lang==='ko')+'">한국어</button><button type="button" data-lang="en" aria-pressed="'+(S.lang==='en')+'">English</button></div></div>';
+}
+function unitSeg(){
+  return '<div class="field"><span class="eyebrow">'+B('Temperature unit','온도 단위')+'</span><div class="seg" role="group" aria-label="'+esc(P('Temperature unit','온도 단위'))+'"><button type="button" data-unit="F" aria-pressed="'+(S.unit==='F')+'">°F</button><button type="button" data-unit="C" aria-pressed="'+(S.unit==='C')+'">°C</button></div></div>';
 }
 function showTab(){
   ['run','log','rules'].forEach(function(k){
@@ -784,32 +836,32 @@ function renderRun(){
   if(S.micNote) h+='<div class="notice" role="status" style="margin-bottom:12px">'+esc(S.micNote)+'</div>';
   if(!S.running&&!S.paused){
     var c=counts();
-    h+='<div class="card"><div class="eyebrow">오늘 점검</div><h2 style="margin:4px 0 12px">'+esc(dateKey())+' · '+(S.shift==='lunch'?'점심':'저녁')+'</h2>'
-     +'<div class="row" style="margin-bottom:14px">'
-     +'<div class="field"><span class="eyebrow">근무</span><div class="seg" role="group" aria-label="근무"><button type="button" data-shift="lunch" aria-pressed="'+(S.shift==='lunch')+'">점심</button><button type="button" data-shift="dinner" aria-pressed="'+(S.shift==='dinner')+'">저녁</button></div></div>'
-     +'<div class="field"><span class="eyebrow">말하는 언어</span><div class="seg" role="group" aria-label="언어"><button type="button" data-lang="ko" aria-pressed="'+(S.lang==='ko')+'">한국어</button><button type="button" data-lang="en" aria-pressed="'+(S.lang==='en')+'">English</button></div></div></div>'
-     +'<button class="btn primary big" id="btnStart" type="button">'+(c.done?'이어서 점검하기':'점검 시작')+'</button>'
-     +'<ul class="hint-list"><li>날짜와 시간은 앱이 자동으로 기록합니다.</li><li>마이크를 누르고 &ldquo;라인체크 시작&rdquo;이라고 말하면 라인 체크부터 시작합니다.</li><li>답을 말하면 앱이 되읽어 확인하고, 기준을 벗어나면 다시 묻습니다.</li></ul></div>';
-    if(S.done||c.done){ h+='<div class="card" style="margin-top:14px"><div class="eyebrow">진행 현황</div>'+sumHtml()+'</div>'; }
+    h+='<div class="card"><div class="eyebrow">'+B("Today's check",'오늘 점검')+'</div><h2 style="margin:4px 0 12px">'+esc(dateKey())+' · '+shiftHtml()+'</h2>'
+     +'<div class="row" style="margin-bottom:14px">'+shiftSeg()+langSeg()+unitSeg()+'</div>'
+     +'<button class="btn primary big" id="btnStart" type="button">'+(c.done?B('Continue check','이어서 점검하기'):B('Start check','점검 시작'))+'</button>'
+     +'<ul class="hint-list"><li>'+B('Date and time are recorded automatically.','날짜와 시간은 앱이 자동으로 기록합니다.')+'</li>'
+     +'<li>'+B('Tap the mic and say “start line check” to begin at the line check.','마이크를 누르고 “라인체크 시작”이라고 말하면 라인 체크부터 시작합니다.')+'</li>'
+     +'<li>'+B('The app reads back each answer and asks again if a value is out of range.','답을 말하면 앱이 되읽어 확인하고, 기준을 벗어나면 다시 묻습니다.')+'</li></ul></div>';
+    if(S.done||c.done){ h+='<div class="card" style="margin-top:14px"><div class="eyebrow">'+B('Progress','진행 현황')+'</div>'+sumHtml()+'</div>'; }
   } else {
-    var it=cur(), c2=counts(), pct=Math.round(S.idx/ITEMS.length*100);
+    var it=cur(), pct=Math.round(S.idx/ITEMS.length*100);
     h+='<div class="prog"><div class="prog-top"><span>'+esc(secName(it.sec))+'</span><span>'+S.idx+' / '+(ITEMS.length-1)+'</span></div><div class="bar"><i style="width:'+pct+'%"></i></div></div>';
     var isEn=S.lang==='en';
     h+='<div class="card q" style="margin-top:14px">'+(isEn?'':'<div class="eyebrow">'+esc(SECS[it.sec].en)+'</div>');
     h+='<p class="q-ko">'+esc(isEn?(it.type==='yn'||it.type==='num'?it.en:(it.qen||it.en)):it.ko)+'</p>'+(isEn?'':'<p class="q-en">'+esc(it.en)+'</p>');
-    if(it.type==='yn') h+='<p class="q-en">'+(isEn?'True: say yes · Not true: say no':'맞으면 예 · 아니면 아니요')+'</p>';
+    if(it.type==='yn') h+='<p class="q-en">'+(isEn?'True: say yes · Not true: say no':B('True: say yes · Not true: say no','맞으면 예 · 아니면 아니요'))+'</p>';
     if(hintOf(it)) h+='<p class="q-hint">'+esc(hintOf(it))+'</p>';
-    if(it.rule) h+='<span class="badge">기준 '+esc(ruleText(it.rule))+'</span>';
+    if(it.rule) h+='<span class="badge">'+Bi('Limit','기준')+' '+esc(ruleText(it.rule))+'</span>';
     if(it.type==='num'){
       var p=S.pend, v=p&&p.kind==='val'?p.v:null, bad=p&&p.st&&p.st!=='ok';
-      h+='<div class="read '+(v===null?'':(bad?'bad':'ok'))+'"><b>'+(v===null?'–':esc(v))+'</b><span>'+(it.unit==='ppm'?'ppm':'°F')+'</span>'+(bad?'<em class="flag" style="font-style:normal">기준 이탈</em>':'')+'</div>';
+      h+='<div class="read '+(v===null?'':(bad?'bad':'ok'))+'"><b>'+(v===null?'–':esc(dv(it,v)))+'</b><span>'+esc(unitOf(it))+'</span>'+(bad?'<em class="flag" style="font-style:normal">'+Bi('Out of range','기준 이탈')+'</em>':'')+'</div>';
     }
     if(it.type==='multi'){
       var vals=S.pend&&S.pend.vals||[];
-      h+='<div class="chips" aria-label="기록된 온도">'+(vals.length?vals.map(function(x){return '<span class="chip'+(x.st!=='ok'?' bad':'')+'">'+esc(x.v)+'</span>';}).join(''):'<span class="muted small">아직 없음</span>')+'</div><div class="small muted">'+vals.length+' / 최소 '+it.min+'개</div>';
+      h+='<div class="chips" aria-label="'+esc(P('Recorded temperatures','기록된 온도'))+'">'+(vals.length?vals.map(function(x){return '<span class="chip'+(x.st!=='ok'?' bad':'')+'">'+esc(dv(it,x.v))+'</span>';}).join(''):'<span class="muted small">'+Bi('None yet','아직 없음')+'</span>')+'</div><div class="small muted">'+vals.length+' / '+Bi('min','최소')+' '+it.min+' · '+esc(unitOf(it))+'</div>';
     }
     h+='</div>';
-    if(S.paused) h+='<button class="btn primary big" id="btnResume" type="button" style="margin-top:14px">계속하기</button>';
+    if(S.paused) h+='<button class="btn primary big" id="btnResume" type="button" style="margin-top:14px">'+B('Resume','계속하기')+'</button>';
   }
   h+='<div class="chat" style="margin-top:14px" aria-live="polite">'+S.chat.slice(-4).map(function(m){return '<div class="msg '+m.who+'">'+esc(m.text)+'</div>';}).join('')+'</div>';
   el.innerHTML=h;
@@ -822,7 +874,6 @@ function secCount(sec){ var a=secIdx(sec), d=0; a.forEach(function(i){ if(S.rec[
 function nameOf(it){ if(S.lang==='en') return it.en; return (it.nm||it.ko).replace(/[.?？]$/,''); }
 function secName(sec){ return S.lang==='en'?SECS[sec].en:SECS[sec].ko; }
 function hintOf(it){ return S.lang==='en'?(it.hintEn||''):(it.hint||''); }
-function unitOf(it){ return it.unit==='ppm'?'ppm':'°F'; }
 function fItemHtml(it,i){
   var r=S.rec[it.id], bad=r&&r.status!=='ok'&&r.status!=='skip';
   var h='<div class="f-item'+(bad?' bad':'')+'" id="fi-'+i+'" data-i="'+i+'">';
@@ -830,37 +881,36 @@ function fItemHtml(it,i){
   if(hintOf(it)) h+='<p class="q-hint">'+esc(hintOf(it))+'</p>';
   if(it.type==='yn'){
     var v=r&&r.value;
-    h+='<div class="seg" role="group" aria-label="응답"><button type="button" data-fy="y" aria-pressed="'+(v==='Yes')+'">'+(S.lang==='en'?'Yes':'예')+'</button><button type="button" data-fy="n" aria-pressed="'+(v==='No')+'">'+(S.lang==='en'?'No':'아니요')+'</button><button type="button" data-fy="na" aria-pressed="'+(!!r&&r.status==='skip')+'">'+(S.lang==='en'?'N/A':'해당없음')+'</button></div>';
+    h+='<div class="seg" role="group" aria-label="'+esc(P('Answer','응답'))+'"><button type="button" data-fy="y" aria-pressed="'+(v==='Yes')+'">'+B('Yes','예')+'</button><button type="button" data-fy="n" aria-pressed="'+(v==='No')+'">'+B('No','아니요')+'</button><button type="button" data-fy="na" aria-pressed="'+(!!r&&r.status==='skip')+'">'+B('N/A','해당없음')+'</button></div>';
   } else if(it.type==='num'){
-    var val=r&&r.status!=='skip'?r.value:'';
-    h+='<div class="f-num"><input type="number" inputmode="decimal" step="any" id="n-'+i+'" data-fnum value="'+esc(val)+'" aria-label="'+esc(nameOf(it))+'" placeholder="–"><span class="f-unit">'+unitOf(it)+'</span>'+(it.rule&&S.rules[it.rule]?'<span class="badge">기준 '+esc(ruleText(it.rule))+'</span>':'')+'<button type="button" class="btn small" data-fna aria-pressed="'+(!!r&&r.status==='skip')+'">N/A</button></div>';
-    if(r&&r.status==='out') h+='<p class="f-msg">기준 이탈: '+esc(r.value)+' '+unitOf(it)+' (기준 '+esc(ruleText(it.rule))+')</p>';
+    var val=r&&r.status!=='skip'?dv(it,r.value):'';
+    h+='<div class="f-num"><input type="number" inputmode="decimal" step="any" id="n-'+i+'" data-fnum value="'+esc(val)+'" aria-label="'+esc(nameOf(it))+'" placeholder="–"><span class="f-unit">'+esc(unitOf(it))+'</span>'+(it.rule&&S.rules[it.rule]?'<span class="badge">'+Bi('Limit','기준')+' '+esc(ruleText(it.rule))+'</span>':'')+'<button type="button" class="btn small" data-fna aria-pressed="'+(!!r&&r.status==='skip')+'">N/A</button></div>';
+    if(r&&r.status==='out') h+='<p class="f-msg">'+Bi('Out of range','기준 이탈')+': '+esc(dv(it,r.value))+' '+esc(unitOf(it))+' ('+Bi('limit','기준')+' '+esc(ruleText(it.rule))+')</p>';
   } else if(it.type==='multi'){
     var vals=r&&r.vals||[];
-    h+='<div class="chips">'+(vals.length?vals.map(function(x,k){var ok=evalRule(it.rule,x.v)==='ok';return '<button type="button" class="chip'+(ok?'':' bad')+'" data-fdel="'+k+'" aria-label="'+esc(x.v)+' 삭제">'+esc(x.v)+' ×</button>';}).join(''):'<span class="muted small">아직 없음</span>')+'</div>';
-    h+='<div class="f-num"><input type="number" inputmode="decimal" step="any" id="m-'+i+'" placeholder="온도" aria-label="온도 추가"><span class="f-unit">°F</span><span class="badge">기준 '+esc(ruleText(it.rule))+'</span><button type="button" class="btn primary small" data-fadd>추가</button></div>';
-    h+='<div class="small muted">'+vals.length+' / 최소 '+it.min+'개 · 값을 누르면 삭제</div>';
+    h+='<div class="chips">'+(vals.length?vals.map(function(x,k){var ok=evalRule(it.rule,x.v)==='ok';return '<button type="button" class="chip'+(ok?'':' bad')+'" data-fdel="'+k+'" aria-label="'+esc(dv(it,x.v)+' '+P('delete','삭제'))+'">'+esc(dv(it,x.v))+' ×</button>';}).join(''):'<span class="muted small">'+Bi('None yet','아직 없음')+'</span>')+'</div>';
+    h+='<div class="f-num"><input type="number" inputmode="decimal" step="any" id="m-'+i+'" placeholder="'+esc(P('Temp','온도'))+'" aria-label="'+esc(P('Add temperature','온도 추가'))+'"><span class="f-unit">'+esc(unitOf(it))+'</span><span class="badge">'+Bi('Limit','기준')+' '+esc(ruleText(it.rule))+'</span><button type="button" class="btn primary small" data-fadd>'+B('Add','추가')+'</button></div>';
+    h+='<div class="small muted">'+vals.length+' / '+Bi('min','최소')+' '+it.min+' · '+Bi('tap a value to delete','값을 누르면 삭제')+'</div>';
   } else {
-    h+='<textarea id="t-'+i+'" data-ftext rows="2" placeholder="특이사항을 입력하세요">'+esc(r&&r.value!=='-'?r.value:'')+'</textarea><div><button type="button" class="btn small" data-fnone aria-pressed="'+(!!r&&r.value==='-')+'">없음</button></div>';
+    h+='<textarea id="t-'+i+'" data-ftext rows="2" placeholder="'+esc(P('Enter notes','특이사항을 입력하세요'))+'">'+esc(r&&r.value!=='-'?r.value:'')+'</textarea><div><button type="button" class="btn small" data-fnone aria-pressed="'+(!!r&&r.value==='-')+'">'+B('None','없음')+'</button></div>';
   }
   if(S.fmsg[i]) h+='<p class="f-msg">'+esc(S.fmsg[i])+'</p>';
-  if(bad&&it.type!=='text') h+='<label class="f-act"><span>시정조치</span><textarea id="a-'+i+'" data-fact rows="2" placeholder="예: 문을 닫고 30분 뒤 재측정">'+esc(r.action||'')+'</textarea></label>';
+  if(bad&&it.type!=='text') h+='<label class="f-act"><span>'+Bi('Corrective action','시정조치')+'</span><textarea id="a-'+i+'" data-fact rows="2" placeholder="'+esc(P('e.g. Closed the door, re-measure in 30 min','예: 문을 닫고 30분 뒤 재측정'))+'">'+esc(r.action||'')+'</textarea></label>';
   return h+'</div>';
 }
 function fProgHtml(){
   var c=counts(), pct=Math.round(c.done/c.total*100);
-  return '<div class="prog-top"><span>기록 '+c.done+' / '+c.total+'</span><span>'+pct+'%</span></div><div class="bar"><i style="width:'+pct+'%"></i></div>';
+  return '<div class="prog-top"><span>'+Bi('Recorded','기록')+' '+c.done+' / '+c.total+'</span><span>'+pct+'%</span></div><div class="bar"><i style="width:'+pct+'%"></i></div>';
 }
 function renderForm(){
-  var el=$('#runBody'), mgr=S.rec[ITEMS[0].id], openIdx=firstOpenIdx(), openSec=openIdx<ITEMS.length&&ITEMS[openIdx].sec!=='head'?ITEMS[openIdx].sec:(ITEMS[firstOpenIdx()]?null:null);
+  var el=$('#runBody'), mgr=S.rec[ITEMS[0].id], openIdx=firstOpenIdx(), openSec=openIdx<ITEMS.length&&ITEMS[openIdx].sec!=='head'?ITEMS[openIdx].sec:null;
   if(openIdx<ITEMS.length&&ITEMS[openIdx].sec==='head'){ var k=firstOpenIdx('fac'); openSec=k<ITEMS.length?'fac':null; }
   var h='';
-  h+='<div class="card"><div class="eyebrow">오늘 점검</div><h2 style="margin:4px 0 12px">'+esc(dateKey())+' · '+(S.shift==='lunch'?'점심':'저녁')+'</h2>';
-  h+='<div class="row" style="margin-bottom:14px"><div class="field"><span class="eyebrow">근무</span><div class="seg" role="group" aria-label="근무"><button type="button" data-shift="lunch" aria-pressed="'+(S.shift==='lunch')+'">점심</button><button type="button" data-shift="dinner" aria-pressed="'+(S.shift==='dinner')+'">저녁</button></div></div>';
-  h+='<div class="field"><span class="eyebrow">언어</span><div class="seg" role="group" aria-label="언어"><button type="button" data-lang="ko" aria-pressed="'+(S.lang==='ko')+'">한국어</button><button type="button" data-lang="en" aria-pressed="'+(S.lang==='en')+'">English</button></div></div></div>';
-  h+='<div class="field" style="margin-bottom:14px"><label class="eyebrow" for="mgr">담당 매니저</label><input id="mgr" data-fmgr type="text" style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 11px" value="'+esc(mgr?mgr.value:'')+'" placeholder="이름"></div>';
+  h+='<div class="card"><div class="eyebrow">'+B("Today's check",'오늘 점검')+'</div><h2 style="margin:4px 0 12px">'+esc(dateKey())+' · '+shiftHtml()+'</h2>';
+  h+='<div class="row" style="margin-bottom:14px">'+shiftSeg()+langSeg().replace(B('Question language','질문 언어'),B('Item language','항목 언어'))+unitSeg()+'</div>';
+  h+='<div class="field" style="margin-bottom:14px"><label class="eyebrow" for="mgr">'+B('Manager on duty','담당 매니저')+'</label><input id="mgr" data-fmgr type="text" style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 11px" value="'+esc(mgr?mgr.value:'')+'" placeholder="'+esc(P('Name','이름'))+'"></div>';
   h+='<div class="prog" id="fProg">'+fProgHtml()+'</div><div id="fSum">'+sumHtml()+'</div>';
-  h+='<div class="row" style="margin-top:12px"><button class="btn" type="button" data-mode="voice">여기부터 음성으로</button><button class="btn" type="button" data-tab="log">기록·내보내기</button></div></div>';
+  h+='<div class="row" style="margin-top:12px"><button class="btn" type="button" data-mode="voice">'+B('Continue by voice','여기부터 음성으로')+'</button><button class="btn" type="button" data-tab="log">'+B('Log · Export','기록·내보내기')+'</button></div></div>';
   h+='<div class="jumps" style="margin-top:14px">'+SEC_ORDER.map(function(k){return '<button type="button" data-fsec="'+k+'">'+esc(secName(k))+'</button>';}).join('')+'</div>';
   h+='<div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">';
   SEC_ORDER.forEach(function(sec){
@@ -887,8 +937,9 @@ function fNum(i,raw){
   delete S.fmsg[i];
   if(raw===''||raw==null){ if(prev&&prev.status!=='skip') clearRec(it); return refreshItem(i); }
   var v=parseFloat(raw); if(isNaN(v)) return refreshItem(i);
+  v=inF(it,v);
   var lim=plaus(it);
-  if(v<lim[0]||v>lim[1]){ S.fmsg[i]='값이 범위를 벗어났어요. 다시 확인해 주세요.'; return refreshItem(i); }
+  if(v<lim[0]||v>lim[1]){ S.fmsg[i]=P('Value is out of the possible range. Please check it.','값이 범위를 벗어났어요. 다시 확인해 주세요.'); return refreshItem(i); }
   var st=evalRule(it.rule,v)==='ok'?'ok':'out';
   commitFor(it,{status:st,value:v,unit:it.unit,action:st==='out'&&prev?(prev.action||''):''});
   refreshItem(i);
@@ -900,7 +951,8 @@ function fSaveMulti(it,vals,prev){
 }
 function fAddTemp(i){
   var it=ITEMS[i], inp=$('#m-'+i), v=parseFloat(inp.value); if(isNaN(v)) return;
-  var lim=plaus(it); if(v<lim[0]||v>lim[1]){ S.fmsg[i]='값이 범위를 벗어났어요. 다시 확인해 주세요.'; return refreshItem(i); }
+  v=inF(it,v);
+  var lim=plaus(it); if(v<lim[0]||v>lim[1]){ S.fmsg[i]=P('Value is out of the possible range. Please check it.','값이 범위를 벗어났어요. 다시 확인해 주세요.'); return refreshItem(i); }
   delete S.fmsg[i];
   var prev=S.rec[it.id], vals=(prev&&prev.vals?prev.vals.slice():[]);
   vals.push({v:v,st:evalRule(it.rule,v)}); fSaveMulti(it,vals,prev); refreshItem(i);
@@ -932,51 +984,77 @@ function handleFormClick(b){
 }
 function sumHtml(){
   var c=counts();
-  return '<div class="sum" style="margin-top:8px"><div><b>'+c.done+'</b><span>기록한 항목</span></div><div><b style="color:var(--ok)">'+c.ok+'</b><span>정상</span></div><div><b style="color:var(--bad)">'+c.bad+'</b><span>이탈 · 아니요</span></div><div><b style="color:var(--warn)">'+c.noAct+'</b><span>시정조치 미기재</span></div></div>';
+  return '<div class="sum" style="margin-top:8px"><div><b>'+c.done+'</b><span>'+B('Recorded','기록한 항목')+'</span></div><div><b style="color:var(--ok)">'+c.ok+'</b><span>'+B('OK','정상')+'</span></div><div><b style="color:var(--bad)">'+c.bad+'</b><span>'+B('Out · No','이탈 · 아니요')+'</span></div><div><b style="color:var(--warn)">'+c.noAct+'</b><span>'+B('No action logged','시정조치 미기재')+'</span></div></div>';
 }
+function whyText(w){
+  return String(w).replace('수정 전 값','Before edit').replace('정정 전 값','Before correction').replace('기준 이탈 후 재측정','Re-measured after out of range').replace('시정조치:','action:').replace('(기준 이탈)','(out of range)');
+}
+function dvAny(it,v){ return (typeof v==='number'&&(it.type==='num'||it.type==='multi'))?dv(it,v):v; }
 function valText(it,r){
   if(r.status==='skip') return 'N/A';
-  if(it.type==='num') return r.value+' '+(it.unit==='ppm'?'ppm':'°F');
-  if(it.type==='multi') return (r.value+'').split(', ').join(' · ')+' °F';
+  if(it.type==='num') return dual(it,r.value);
+  if(it.type==='multi') return (r.value+'').split(', ').map(function(s){return dv(it,parseFloat(s));}).join(' · ')+' '+unitOf(it);
   return r.value;
 }
 function renderLog(){
-  var el=$('#logBody'), c=counts();
-  var h='<div class="card"><div class="eyebrow">'+esc(dateKey())+' · '+(S.shift==='lunch'?'점심':'저녁')+'</div>'+sumHtml();
-  h+='<div class="row" style="margin-top:12px"><button class="btn primary" id="btnXlsx" type="button">엑셀로 내려받기</button><button class="btn" id="btnCopy" type="button">표로 복사</button></div>';
-  h+='<div class="small muted" id="expNote" style="margin-top:8px">'+(window.self!==window.top?'공유 링크 화면에서는 내려받기가 막혀 있어요. 표로 복사해서 엑셀에 붙여넣으세요.':'')+'</div></div>';
+  var el=$('#logBody');
+  var h='<div class="card"><div class="eyebrow">'+esc(dateKey())+' · '+shiftHtml()+'</div>'+sumHtml();
+  h+='<div class="row" style="margin-top:12px"><button class="btn primary" id="btnXlsx" type="button">'+B('Download Excel','엑셀로 내려받기')+'</button><button class="btn" id="btnCopy" type="button">'+B('Copy as table','표로 복사')+'</button></div>';
+  h+='<div class="small muted" id="expNote" style="margin-top:8px">'+(window.self!==window.top?B('Downloads are blocked in this shared view. Copy as a table and paste into Excel.','공유 링크 화면에서는 내려받기가 막혀 있어요. 표로 복사해서 엑셀에 붙여넣으세요.'):'')+'</div></div>';
   h+='<div class="list" style="margin-top:14px">';
   var any=false;
   ITEMS.forEach(function(it,i){
     var r=S.rec[it.id]; if(!r||it.sec==='head') return; any=true;
     h+='<button class="item" type="button" data-jump="'+i+'">'+pillFor(r)+'<span class="nm">'+esc(nameOf(it))+'</span>'
      +(S.lang==='en'?'':'<span class="en">'+esc(it.en)+'</span>')+'<span class="val">'+esc(valText(it,r))+'</span>'
-     +(r.action?'<span class="act">시정조치: '+esc(r.action)+'</span>':(r.status!=='ok'&&r.status!=='skip'?'<span class="act">시정조치 미기재</span>':''))
-     +(r.hist&&r.hist.length?'<span class="hist">정정 이력: '+r.hist.map(function(x){return esc(x.v)+' ('+esc(x.why)+')';}).join(', ')+'</span>':'')+'</button>';
+     +(r.action?'<span class="act">'+Bi('Corrective action','시정조치')+': '+esc(r.action)+'</span>':(r.status!=='ok'&&r.status!=='skip'?'<span class="act">'+Bi('No corrective action logged','시정조치 미기재')+'</span>':''))
+     +(r.hist&&r.hist.length?'<span class="hist">'+Bi('Edit history','정정 이력')+': '+r.hist.map(function(x){return esc(dvAny(it,x.v))+' ('+esc(whyText(x.why))+')';}).join(', ')+'</span>':'')+'</button>';
   });
-  if(!any) h+='<div class="card muted">아직 기록이 없어요. 점검을 시작하면 여기에 쌓입니다.</div>';
+  if(!any) h+='<div class="card muted">'+B('No records yet. They appear here once you start the check.','아직 기록이 없어요. 점검을 시작하면 여기에 쌓입니다.')+'</div>';
   h+='</div>';
   el.innerHTML=h;
 }
+function uiSeg(){
+  var o=[['bi','EN + 한국어'],['en','English'],['ko','한국어']];
+  return '<div class="seg" role="group" aria-label="'+esc(P('Display language','표시 언어'))+'">'+o.map(function(x){return '<button type="button" data-ui="'+x[0]+'" aria-pressed="'+(S.ui===x[0])+'">'+x[1]+'</button>';}).join('')+'</div>';
+}
 function renderRules(){
   var el=$('#rulesBody');
-  var h='<div class="card"><h2>기준치</h2><p class="small muted" style="margin:4px 0 8px">아래 값은 시제품 기본값입니다. 업장의 HACCP 계획과 관할 기준에 맞게 바꿔 사용하세요. 벗어난 값을 말하면 앱이 다시 묻습니다.</p><div class="rules">';
+  var h='<div class="card"><h2>'+B('Display','표시')+'</h2>'
+   +'<div class="vrow"><label>'+B('Temperature unit','온도 단위')+'</label><div class="seg" role="group"><button type="button" data-unit="F" aria-pressed="'+(S.unit==='F')+'">°F</button><button type="button" data-unit="C" aria-pressed="'+(S.unit==='C')+'">°C</button></div>'
+   +'<p class="small muted" style="margin:2px 0 0">'+B('Limits always show both °F and °C. This choice sets the unit for entering and reading values.','기준치는 항상 °F와 °C를 함께 보여줍니다. 이 설정은 값을 입력하고 읽어 주는 단위입니다.')+'</p></div>'
+   +'<div class="vrow"><label>'+B('Display language','표시 언어')+'</label>'+uiSeg()+'</div></div>';
+  h+='<div class="card" style="margin-top:14px"><h2>'+B('Limits','기준치')+'</h2><p class="small muted" style="margin:4px 0 8px">'+B('These are prototype defaults. Adjust them to your HACCP plan and local rules. If a value outside the limit is reported, the app asks again.','아래 값은 시제품 기본값입니다. 업장의 HACCP 계획과 관할 기준에 맞게 바꿔 사용하세요. 벗어난 값을 말하면 앱이 다시 묻습니다.')+'</p><div class="rules">';
   Object.keys(S.rules).forEach(function(k){
-    var r=S.rules[k], u=k==='sani'?'ppm':'°F';
-    h+='<div class="rule"><div class="nm">'+esc(r.label)+'<div class="small muted">'+u+'</div></div>'
-      +(('min' in r)?'<label>최소<input type="number" inputmode="decimal" data-rule="'+k+'" data-k="min" id="r-'+k+'-min" value="'+esc(r.min)+'"></label>':'<span></span>')
-      +(('max' in r)?'<label>최대<input type="number" inputmode="decimal" data-rule="'+k+'" data-k="max" id="r-'+k+'-max" value="'+esc(r.max)+'"></label>':'<span></span>')+'</div>';
+    var r=S.rules[k], d=DEFAULT_RULES[k], ppm=k==='sani', u=ppm?'ppm':'°'+S.unit;
+    var cv=function(x){ return ppm?x:r1(S.unit==='C'?fToC(x):x); };
+    h+='<div class="rule"><div class="nm">'+B(d.en,d.ko)+'<div class="small muted">'+esc(ruleText(k))+'</div></div>'
+      +(('min' in r)?'<label>'+B('Min','최소')+' <span>'+esc(u)+'</span><input type="number" inputmode="decimal" step="any" data-rule="'+k+'" data-k="min" id="r-'+k+'-min" value="'+esc(cv(r.min))+'"></label>':'<span></span>')
+      +(('max' in r)?'<label>'+B('Max','최대')+' <span>'+esc(u)+'</span><input type="number" inputmode="decimal" step="any" data-rule="'+k+'" data-k="max" id="r-'+k+'-max" value="'+esc(cv(r.max))+'"></label>':'<span></span>')+'</div>';
   });
   h+='</div></div>';
-  h+='<div class="card" style="margin-top:14px"><h2>진행 방식</h2>'
-   +'<label class="toggle"><span>예 / 아니요 답변은 되읽지 않고 바로 다음으로<br><span class="small muted">숫자는 항상 되읽어 확인합니다</span></span><input type="checkbox" id="optAuto" '+(S.autoYN?'checked':'')+'></label>'
-   +'<label class="toggle"><span>읽은 뒤 마이크 자동으로 켜기</span><input type="checkbox" id="optHands" '+(S.handsFree?'checked':'')+'></label>'
-   +'<div class="toggle"><span>목소리·읽는 속도<br><span class="small muted">음성 모드 화면의 &ldquo;음성 설정&rdquo;에서 바꿉니다</span></span></div>'
-   +'<div class="toggle"><span>기준치 초기화</span><button class="btn small" id="btnReset" type="button">기본값으로</button></div></div>';
+  h+='<div class="card" style="margin-top:14px"><h2>'+B('How it runs','진행 방식')+'</h2>'
+   +'<label class="toggle"><span>'+B('Skip the read-back for yes / no answers','예 / 아니요 답변은 되읽지 않고 바로 다음으로')+'<span class="small muted">'+B('Numbers are always read back.','숫자는 항상 되읽어 확인합니다.')+'</span></span><input type="checkbox" id="optAuto" '+(S.autoYN?'checked':'')+'></label>'
+   +'<label class="toggle"><span>'+B('Turn the mic on automatically after reading','읽은 뒤 마이크 자동으로 켜기')+'</span><input type="checkbox" id="optHands" '+(S.handsFree?'checked':'')+'></label>'
+   +'<div class="toggle"><span>'+B('Voice and reading speed','목소리·읽는 속도')+'<span class="small muted">'+B('Change them under “Voice settings” in Voice mode.','음성 모드 화면의 “음성 설정”에서 바꿉니다.')+'</span></span></div>'
+   +'<div class="toggle"><span>'+B('Reset limits','기준치 초기화')+'</span><button class="btn small" id="btnReset" type="button">'+B('Defaults','기본값으로')+'</button></div></div>';
   el.innerHTML=h;
 }
+function chrome(){
+  $('#brandSub').innerHTML=B('Voice check log · prototype','음성 점검 기록 · 시제품');
+  $('#m-form').innerHTML=B('Normal mode','일반 모드'); $('#m-voice').innerHTML=B('Voice mode','음성 모드');
+  $('#modeHelp').innerHTML=B('Normal in noisy places, voice in quiet ones. Both modes share one record.','시끄러운 곳은 일반, 조용한 곳은 음성. 기록은 두 모드가 함께 씁니다.');
+  $('#t-run').innerHTML=B('Check','점검'); $('#t-log').innerHTML=B('Log','기록'); $('#t-rules').innerHTML=B('Settings','설정');
+  $('#mic').setAttribute('aria-label',P('Microphone','마이크'));
+  $('#say').setAttribute('placeholder',P('Type instead of speaking (e.g. 38, yes, no)','말 대신 입력하기 (예: 38, 예, 아니요)'));
+  $('#say').setAttribute('aria-label',P('Type an answer','답변 입력'));
+  $('#sendBtn').innerHTML=B('Send','보내기');
+  var q=[['예','Yes','예'],['아니요','No','아니요'],['그대로','Keep','그대로'],['건너뛰기','Skip','건너뛰기'],['뒤로','Back','뒤로'],['다시 읽어줘','Repeat','다시 듣기'],['천천히','Slower','천천히'],['빠르게','Faster','빠르게'],['일시정지','Pause','일시정지']];
+  $('#quick').innerHTML=q.map(function(x){return '<button type="button" data-q="'+x[0]+'">'+B(x[1],x[2])+'</button>';}).join('');
+}
 function render(){
-  $('#when').innerHTML=esc(dateKey())+'<br>'+(S.shift==='lunch'?'점심':'저녁');
+  chrome();
+  $('#when').innerHTML=esc(dateKey())+'<br>'+shiftHtml();
   if(S.tab==='run') renderRun();
   if(S.tab==='log') renderLog();
   if(S.tab==='rules') renderRules();
@@ -986,43 +1064,47 @@ function render(){
   $('#vsetWrap').hidden=(S.tab!=='run'||S.mode!=='voice');
   var mic=$('#mic'); mic.disabled=!S.mic;
   $('#quick').hidden=!S.running;
-  if(S.mode==='voice'&&!S.mic&&!S.running) $('#stateLbl').textContent='입력창으로 시작할 수 있어요';
+  if(S.mode==='voice'&&!S.mic&&!S.running) $('#stateLbl').innerHTML=B('You can start with the text box','입력창으로 시작할 수 있어요');
 }
 
 /* ================= 내보내기 ================= */
 function buildRows(){
-  var rows=[['날짜','근무','매니저','기록시각','구역','항목(원문)','항목(한글)','응답','단위','기준','판정','시정조치','정정 이력']];
+  var rows=[['Date 날짜','Shift 근무','Manager 매니저','Time 기록시각','Section 구역','Item (original) 항목(원문)','Item (Korean) 항목(한글)','Answer 응답','Unit 단위','Limit 기준','Result 판정','Corrective action 시정조치','Edit history 정정 이력']];
   var mgr=S.rec[ITEMS[0].id]; var mgrName=mgr?mgr.value:'';
   ITEMS.forEach(function(it){
     var r=S.rec[it.id]; if(!r||it.sec==='head') return;
-    var st={ok:'정상',skip:'건너뜀',fail:'아니요',out:'기준 이탈',short:'5회 미달'}[r.status]||r.status;
+    var st={ok:'OK 정상',skip:'Skipped 건너뜀',fail:'No 아니요',out:'Out of range 기준 이탈',short:'Under 5 5회 미달'}[r.status]||r.status;
     var d=new Date(r.at);
     var t=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-    rows.push([dateKey(),S.shift==='lunch'?'Lunch':'Dinner',mgrName,t,SECS[it.sec].en,it.en,it.ko,r.value,it.type==='num'||it.type==='multi'?(it.unit==='ppm'?'ppm':'°F'):'',it.rule?ruleText(it.rule):'',st,r.action||'',(r.hist||[]).map(function(x){return x.v+' ('+x.why+')';}).join('; ')]);
+    var ans=r.value;
+    if(it.type==='num'&&typeof r.value==='number') ans=dv(it,r.value);
+    else if(it.type==='multi') ans=(r.value+'').split(', ').map(function(s){return dv(it,parseFloat(s));}).join(', ');
+    rows.push([dateKey(),S.shift==='lunch'?'Lunch':'Dinner',mgrName,t,SECS[it.sec].en,it.en,it.ko,ans,it.type==='num'||it.type==='multi'?unitOf(it):'',it.rule?ruleText(it.rule):'',st,r.action||'',(r.hist||[]).map(function(x){return dvAny(it,x.v)+' ('+whyText(x.why)+')';}).join('; ')]);
   });
   return rows;
 }
 function exportXlsx(){
   var rows=buildRows(), note=$('#expNote');
-  if(rows.length<2){ note.textContent='내보낼 기록이 없어요.'; return; }
+  if(rows.length<2){ note.textContent=P('Nothing to export yet.','내보낼 기록이 없어요.'); return; }
   try{
     if(!window.XLSX) throw new Error('no xlsx');
     var ws=XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols']=[{wch:11},{wch:8},{wch:10},{wch:8},{wch:18},{wch:48},{wch:40},{wch:14},{wch:6},{wch:12},{wch:10},{wch:30},{wch:28}];
+    ws['!cols']=[{wch:11},{wch:8},{wch:12},{wch:8},{wch:18},{wch:48},{wch:40},{wch:14},{wch:6},{wch:22},{wch:16},{wch:30},{wch:28}];
     var wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Critical Zone');
     XLSX.writeFile(wb,'CriticalZone_'+dateKey()+'_'+S.shift+'.xlsx');
-    note.textContent='엑셀 파일을 만들었어요. 다운로드 폴더를 확인해 주세요.';
-  }catch(e){ note.textContent='내려받기를 쓸 수 없어요. 표로 복사해서 엑셀에 붙여넣으세요.'; }
+    note.textContent=P('Excel file created. Check your Downloads folder.','엑셀 파일을 만들었어요. 다운로드 폴더를 확인해 주세요.');
+  }catch(e){ note.textContent=P('Download is not available. Copy as a table and paste into Excel.','내려받기를 쓸 수 없어요. 표로 복사해서 엑셀에 붙여넣으세요.'); }
 }
 function copyTable(){
   var rows=buildRows(), note=$('#expNote');
   var tsv=rows.map(function(r){return r.map(function(c){return String(c==null?'':c).replace(/[\t\n]/g,' ');}).join('\t');}).join('\n');
+  var okMsg=P('Copied. Paste it into Excel.','복사했어요. 엑셀에 붙여넣으세요.');
   function fallback(){
     var ta=document.createElement('textarea'); ta.value=tsv; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
     var ok=false; try{ok=document.execCommand('copy');}catch(e){} document.body.removeChild(ta);
-    note.textContent=ok?'복사했어요. 엑셀에 붙여넣으세요.':'복사가 막혀 있어요.';
+    note.textContent=ok?okMsg:P('Copying is blocked here.','복사가 막혀 있어요.');
   }
-  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(tsv).then(function(){note.textContent='복사했어요. 엑셀에 붙여넣으세요.';},fallback); } else fallback();
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(tsv).then(function(){note.textContent=okMsg;},fallback); } else fallback();
 }
 
 /* ================= 이벤트 ================= */
@@ -1035,6 +1117,8 @@ document.addEventListener('click',function(e){
   if(b.id==='btnResume') return resume();
   if(b.dataset.shift){ S.shift=b.dataset.shift; loadRec(); return render(); }
   if(b.dataset.lang){ S.lang=b.dataset.lang; saveSettings(); renderVset(); return render(); }
+  if(b.dataset.unit){ S.unit=b.dataset.unit; saveSettings(); return render(); }
+  if(b.dataset.ui){ S.ui=b.dataset.ui; saveSettings(); renderVset(); return render(); }
   if(b.id==='btnTest') return testVoice();
   if(b.dataset.rate){ S.rate=parseFloat(b.dataset.rate); saveSettings(); return render(); }
   if(b.id==='btnXlsx') return exportXlsx();
@@ -1070,7 +1154,7 @@ document.addEventListener('change',function(e){
     var mv=t.value.trim(); if(mv) commitFor(ITEMS[0],{status:'ok',value:mv}); else clearRec(ITEMS[0]);
     return updateFormMeta();
   }
-  if(t.dataset&&t.dataset.rule){ var v=parseFloat(t.value); if(!isNaN(v)){ S.rules[t.dataset.rule][t.dataset.k]=v; saveSettings(); } return; }
+  if(t.dataset&&t.dataset.rule){ var v=parseFloat(t.value); if(!isNaN(v)){ var tmp=t.dataset.rule!=='sani'; S.rules[t.dataset.rule][t.dataset.k]=(tmp&&S.unit==='C')?Math.round(cToF(v)*100)/100:v; saveSettings(); renderRules(); } return; }
   if(t.id==='optAuto'){ S.autoYN=t.checked; saveSettings(); }
   if(t.id==='optHands'){ S.handsFree=t.checked; saveSettings(); }
 });
@@ -1089,7 +1173,7 @@ $('#sayForm').addEventListener('submit',function(e){
   e.preventDefault(); var i=$('#say'), v=i.value.trim(); if(!v) return; i.value='';
   addChat('me',v); route(v);
 });
-window.CZ={S:S,ITEMS:ITEMS,setMode:setMode,route:route,parseNum:parseNum,parseYN:parseYN,begin:begin,buildRows:buildRows,evalRule:evalRule};
+window.CZ={S:S,ITEMS:ITEMS,setMode:setMode,route:route,parseNum:parseNum,parseYN:parseYN,begin:begin,buildRows:buildRows,evalRule:evalRule,ruleText:ruleText,fToC:fToC,cToF:cToF,pn:pn,dv:dv,fmt:fmt,B:B};
 renderVset();
 try{ if('speechSynthesis' in window&&speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged',renderVset); }catch(e){}
 showTab(); setState('idle');
