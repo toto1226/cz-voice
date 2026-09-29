@@ -150,6 +150,12 @@ button.chip{border:0;cursor:pointer}
 .seg button[data-fy="n"][aria-pressed="true"]{background:var(--bad);color:#fff}
 .seg button[data-fy="y"][aria-pressed="true"]{background:var(--ok);color:#fff}
 .seg button[data-fy="na"][aria-pressed="true"]{background:var(--muted);color:var(--bg)}
+.vrow{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.vrow label{font-size:.8rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px}
+.vrow label b{color:var(--ink);font-variant-numeric:tabular-nums}
+.vrow select{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:10px 11px}
+.vrow input[type=range]{width:100%;accent-color:var(--accent)}
+details.card>summary{cursor:pointer;font-weight:700}
 .jumps{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
 .jumps button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 13px;font-size:.85rem;font-weight:500}
 </style>
@@ -175,7 +181,7 @@ button.chip{border:0;cursor:pointer}
     <button role="tab" id="t-rules" data-tab="rules" aria-selected="false">기준치</button>
   </nav>
   <main>
-    <section id="tab-run" aria-labelledby="t-run"><div id="runBody"></div></section>
+    <section id="tab-run" aria-labelledby="t-run"><div id="runBody"></div><div id="vsetWrap" hidden style="margin-top:14px"></div></section>
     <section id="tab-log" aria-labelledby="t-log" hidden><div id="logBody"></div></section>
     <section id="tab-rules" aria-labelledby="t-rules" hidden><div id="rulesBody"></div></section>
   </main>
@@ -193,6 +199,8 @@ button.chip{border:0;cursor:pointer}
       <button type="button" data-q="건너뛰기">건너뛰기</button>
       <button type="button" data-q="뒤로">뒤로</button>
       <button type="button" data-q="다시 읽어줘">다시 듣기</button>
+      <button type="button" data-q="천천히">천천히</button>
+      <button type="button" data-q="빠르게">빠르게</button>
       <button type="button" data-q="일시정지">일시정지</button>
     </div>
     <form class="say" id="sayForm" autocomplete="off">
@@ -232,31 +240,31 @@ var SECS = {
 };
 var ITEMS = [];
 function add(o){ o.id='i'+ITEMS.length; ITEMS.push(o); }
-function yn(sec,en,ko,hint){ add({sec:sec,type:'yn',en:en,ko:ko,hint:hint||''}); }
+function yn(sec,en,ko,hint,hintEn){ add({sec:sec,type:'yn',en:en,ko:ko,hint:hint||'',hintEn:hintEn||''}); }
 function tnum(sec,en,ko,rule,unit,nm){ add({sec:sec,type:'num',en:en,ko:ko,rule:rule,unit:unit||'°F',nm:nm}); }
 
-add({sec:'head',type:'text',key:'mgr',nm:'담당 매니저',en:'Manager on duty',ko:'담당 매니저 성함을 말씀해 주세요.'});
+add({sec:'head',type:'text',key:'mgr',nm:'담당 매니저',qen:'Who is the manager on duty?',en:'Manager on duty',ko:'담당 매니저 성함을 말씀해 주세요.'});
 
-yn('fac','All managers ServSafe / Base certificates are posted, none expired','매니저 ServSafe·기본 자격증이 게시되어 있고 만료된 것이 없습니까?');
-yn('fac','No pest activity evident in the facility','시설 안에 해충 활동 흔적이 없습니까?');
-yn('fac','Hot water is available in the restaurant','매장에 온수가 나옵니까?');
-yn('fac','Sewage / waste lines not backed up into facility','하수·폐수 배관이 시설 안으로 역류하지 않았습니까?');
+yn('fac','All managers ServSafe / Base certificates are posted, none expired','매니저 ServSafe·기본 자격증이 게시되어 있고, 만료된 것이 없다.');
+yn('fac','No pest activity evident in the facility','시설 안에 해충 활동 흔적이 없다.');
+yn('fac','Hot water is available in the restaurant','매장에 온수가 나온다.');
+yn('fac','Sewage / waste lines not backed up into facility','하수·폐수 배관이 시설 안으로 역류하지 않았다.');
 [['Salad Nacho','샐러드·나초'],['Prep','프렙'],['4-Hand Sink','4구 핸드싱크'],['Fry','튀김'],['Dish','설거지'],['QA','QA'],['Bar','바']].forEach(function(s){
-  yn('fac','Hand sink ('+s[0]+'): anti-bacterial soap, gloves, paper towels','핸드싱크('+s[1]+')에 항균 비누, 장갑, 종이타월이 있습니까?');
+  yn('fac','Hand sink ('+s[0]+'): anti-bacterial soap, gloves, paper towels','핸드싱크('+s[1]+')에 항균 비누, 장갑, 종이타월이 갖춰져 있다.');
 });
-yn('fac','Employee restrooms stocked: toilet paper, anti-bacterial soap, paper towels, hot water','직원 화장실에 휴지, 항균 비누, 종이타월, 온수가 갖춰져 있습니까?');
-yn('fac','Cleaning chemicals properly labeled','세제·화학약품에 라벨이 제대로 붙어 있습니까?','파란 양동이 주의: 4급 암모늄(quat) 금지, 라벨 필수');
-yn('fac','No cold or frozen products are expired','냉장·냉동 제품 중 유통기한이 지난 것이 없습니까?');
-yn('fac','On Naval Base Vet. Extension up to date','원문 항목 "On Naval Base Vet. Extension"이 최신 상태입니까?');
-yn('fac','EON cooling procedures were followed properly','EON 냉각 절차가 올바르게 지켜졌습니까?');
-yn('fac','Only pasteurized eggs used in restaurant','매장에서 살균 처리된 계란만 사용합니까?');
+yn('fac','Employee restrooms stocked: toilet paper, anti-bacterial soap, paper towels, hot water','직원 화장실에 휴지, 항균 비누, 종이타월, 온수가 갖춰져 있다.');
+yn('fac','Cleaning chemicals properly labeled','세제·화학약품에 라벨이 제대로 붙어 있다.','파란 양동이 주의: 4급 암모늄(quat) 금지, 라벨 필수','Careful with blue buckets: no quats, and containers must be labeled');
+yn('fac','No cold or frozen products are expired','냉장·냉동 제품 중 유통기한이 지난 것이 없다.');
+yn('fac','On Naval Base Vet. Extension up to date','원문 항목 "On Naval Base Vet. Extension"이 최신 상태다.');
+yn('fac','EON cooling procedures were followed properly','EON 냉각 절차가 올바르게 지켜졌다.');
+yn('fac','Only pasteurized eggs used in restaurant','매장에서 살균 처리된 계란만 사용한다.');
 
 [['Walk in - Right #1','워크인 오른쪽 1번','cooler'],['Walk in - Left #2','워크인 왼쪽 2번','cooler'],
  ['Walk in - Chill #1','워크인 칠 1번','cooler'],['Walk in - Chill #2','워크인 칠 2번','cooler'],['Walk in - Chill #3','워크인 칠 3번','cooler'],
  ['Freezer 1','냉동고 1번','freezer'],['Freezer 2','냉동고 2번','freezer'],['Freezer 3','냉동고 3번','freezer'],
  ['Nacho Cooler Bottom / Pan Chiller Top','나초 쿨러 하단·팬 칠러 상단','cooler'],['Dessert Reach In','디저트 리치인','cooler']
 ].forEach(function(t){ tnum('temp',t[0],t[1]+' 온도는 몇 도입니까?',t[2],'°F',t[1]); });
-yn('temp','Ice Cream Box frozen? (Y/N)','아이스크림 박스가 얼어 있습니까?');
+yn('temp','Ice Cream Box frozen? (Y/N)','아이스크림 박스가 얼어 있다.');
 [['Salad Crisper','샐러드 크리스퍼','cooler'],['Salad Cooler Bottom / Pan Chiller Top','샐러드 쿨러 하단·팬 칠러 상단','cooler'],
  ['Fajita Top Pull Out Drawer','파히타 상단 풀아웃 서랍','cooler'],['Expo Cooler Bottom / Pan Chiller Top','엑스포 쿨러 하단·팬 칠러 상단','cooler'],
  ['Flat Top Drawer w/ Grill Unit','플랫탑 서랍(그릴 유닛)','cooler'],['Crisper Reach In Bottom','크리스퍼 리치인 하단','cooler'],
@@ -265,29 +273,29 @@ yn('temp','Ice Cream Box frozen? (Y/N)','아이스크림 박스가 얼어 있습
  ['Liquor Room','주류 창고','none'],['Dish machine lollipop temp only','식기세척기(롤리팝 스트립)','dish']
 ].forEach(function(t){ tnum('temp',t[0],t[1]+' 온도는 몇 도입니까?',t[2],'°F',t[1]); });
 tnum('temp','Bar 3-sink Ecosan 50 (chlorine), dip 7 seconds','바 3구 싱크 소독액(Ecosan 50, 염소)은 몇 피피엠입니까? 7초 담금 기준입니다.','sani','ppm','바 3구 싱크 소독액 염소 (7초 담금)');
-yn('temp','4 probe thermometers on cooks line set to Fahrenheit','조리라인 프로브 온도계 4개가 화씨로 설정되어 있습니까?');
-add({sec:'temp',type:'text',key:'facnotes',nm:'시설 특이사항·시정조치',en:'Facility Notes & Corrective Actions',ko:'시설 특이사항이나 시정조치가 있으면 말씀해 주세요. 없으면 없음이라고 하세요.'});
+yn('temp','4 probe thermometers on cooks line set to Fahrenheit','조리라인 프로브 온도계 4개가 화씨로 설정되어 있다.');
+add({sec:'temp',type:'text',key:'facnotes',nm:'시설 특이사항·시정조치',qen:'Any facility notes or corrective actions? Say none if there are none.',en:'Facility Notes & Corrective Actions',ko:'시설 특이사항이나 시정조치가 있으면 말씀해 주세요. 없으면 없음이라고 하세요.'});
 
-yn('beh',"Produce washed using Ecolab's Victory system prior to use",'채소·과일은 사용 전 Ecolab Victory 시스템으로 세척했습니까?');
-yn('beh',"Produce washed using Ecolab's kitchen sanitizer prior to use",'채소·과일은 사용 전 Ecolab 주방 소독제로 세척했습니까?');
-yn('beh',"No raw PHF's left unattended at room temp for more than 15 minutes",'날 PHF(잠재적 위험 식품)가 상온에 15분 넘게 방치되지 않았습니까?');
-yn('beh','Cross contamination not observed','교차오염이 관찰되지 않았습니까?');
-yn('beh','Sinks sanitized before use','싱크는 사용 전에 소독되었습니까?');
-yn('beh','Clean items not stored on floor','깨끗한 물품이 바닥에 보관되지 않았습니까?');
-yn('beh','Utensils sanitized after touching unsanitary surface','비위생 표면에 닿은 조리도구는 소독 후 사용했습니까?');
-yn('beh','No contaminated food served','오염된 음식이 제공되지 않았습니까?');
-yn('beh','All product properly cooled in the cooling zone','모든 제품이 냉각 구역에서 올바르게 냉각되었습니까?');
-yn('beh','Hygiene: washing of hands','손 씻기가 올바르게 이루어지고 있습니까?');
-yn('beh','Hygiene: open wounds are covered','상처 부위가 덮여 있습니까?');
-yn('beh','Hygiene: hats worn by all cooks & dish','조리·설거지 담당 모두 모자를 착용했습니까?');
-yn('beh','Hygiene: proper use of cut / disposable gloves','절단방지·일회용 장갑을 올바르게 사용하고 있습니까?');
-yn('beh','Towels in use or in sani buckets','행주는 사용 중이거나 소독 양동이에 있습니까?');
-yn('beh','All hot products heated to 165 with hot hold times','모든 뜨거운 제품이 165도까지 가열되었고 핫홀드 시간이 지켜졌습니까?');
-yn('beh','No sick / symptomatic employees / managers at work','아프거나 증상이 있는 직원·매니저가 근무하지 않습니까?');
+yn('beh',"Produce washed using Ecolab's Victory system prior to use",'채소·과일을 사용 전에 Ecolab Victory 시스템으로 세척했다.');
+yn('beh',"Produce washed using Ecolab's kitchen sanitizer prior to use",'채소·과일을 사용 전에 Ecolab 주방 소독제로 세척했다.');
+yn('beh',"No raw PHF's left unattended at room temp for more than 15 minutes",'날 PHF(잠재적 위험 식품)가 상온에 15분 넘게 방치되지 않았다.');
+yn('beh','Cross contamination not observed','교차오염이 관찰되지 않았다.');
+yn('beh','Sinks sanitized before use','싱크를 사용 전에 소독했다.');
+yn('beh','Clean items not stored on floor','깨끗한 물품이 바닥에 보관되지 않았다.');
+yn('beh','Utensils sanitized after touching unsanitary surface','비위생 표면에 닿은 조리도구를 소독한 뒤 사용했다.');
+yn('beh','No contaminated food served','오염된 음식이 제공되지 않았다.');
+yn('beh','All product properly cooled in the cooling zone','모든 제품이 냉각 구역에서 올바르게 냉각되었다.');
+yn('beh','Hygiene: washing of hands','손 씻기가 올바르게 이루어지고 있다.');
+yn('beh','Hygiene: open wounds are covered','상처 부위가 덮여 있다.');
+yn('beh','Hygiene: hats worn by all cooks & dish','조리·설거지 담당 모두 모자를 착용했다.');
+yn('beh','Hygiene: proper use of cut / disposable gloves','절단방지·일회용 장갑을 올바르게 사용하고 있다.');
+yn('beh','Towels in use or in sani buckets','행주가 사용 중이거나 소독 양동이에 들어 있다.');
+yn('beh','All hot products heated to 165 with hot hold times','모든 뜨거운 제품이 165도까지 가열되었고, 핫홀드 시간이 지켜졌다.');
+yn('beh','No sick / symptomatic employees / managers at work','아프거나 증상이 있는 직원·매니저가 근무하지 않는다.');
 
-add({sec:'line',type:'multi',min:5,rule:'coldhold',unit:'°F',nm:'냉장 보관 제품 내부 온도',en:'All products meet cold holding internal temperatures (min. 5 temps)',ko:'냉장 보관 제품의 내부 온도를 하나씩 말씀해 주세요.'});
-add({sec:'line',type:'multi',min:5,rule:'hothold',unit:'°F',nm:'핫홀드 제품 내부 온도',en:'All products meet hot holding internal temperatures (min. 5 temps)',ko:'핫홀드 제품의 내부 온도를 하나씩 말씀해 주세요.'});
-add({sec:'line',type:'text',key:'linenotes',nm:'행동 관찰·라인 체크 특이사항·시정조치',en:'Behavior / Line Check Notes & Corrective Actions',ko:'행동 관찰이나 라인 체크에서 특이사항, 시정조치가 있으면 말씀해 주세요. 없으면 없음이라고 하세요.'});
+add({sec:'line',type:'multi',min:5,rule:'coldhold',unit:'°F',nm:'냉장 보관 제품 내부 온도',qen:'Please say the internal temperature of each cold-held product, one at a time.',en:'All products meet cold holding internal temperatures (min. 5 temps)',ko:'냉장 보관 제품의 내부 온도를 하나씩 말씀해 주세요.'});
+add({sec:'line',type:'multi',min:5,rule:'hothold',unit:'°F',nm:'핫홀드 제품 내부 온도',qen:'Please say the internal temperature of each hot-held product, one at a time.',en:'All products meet hot holding internal temperatures (min. 5 temps)',ko:'핫홀드 제품의 내부 온도를 하나씩 말씀해 주세요.'});
+add({sec:'line',type:'text',key:'linenotes',nm:'행동 관찰·라인 체크 특이사항·시정조치',qen:'Any notes or corrective actions from the behavior and line checks? Say none if there are none.',en:'Behavior / Line Check Notes & Corrective Actions',ko:'행동 관찰이나 라인 체크에서 특이사항, 시정조치가 있으면 말씀해 주세요. 없으면 없음이라고 하세요.'});
 
 /* ================= 상태 ================= */
 var now = new Date();
@@ -296,11 +304,11 @@ var S = {
   lang:'ko', shift: now.getHours()<15?'lunch':'dinner',
   mic:!!SR, micNote:'', tts:('speechSynthesis' in window), handsFree:true, autoYN:true, rate:1,
   rules:JSON.parse(JSON.stringify(DEFAULT_RULES)), startSec:null,
-  chat:[], state:'idle', token:0, silent:0, tab:'run', done:false, mode:'form', openSec:{}, fmsg:{}
+  chat:[], state:'idle', token:0, silent:0, tab:'run', done:false, mode:'form', openSec:{}, fmsg:{}, voice:{ko:null,en:null}
 };
 var saved = store.get('cz-settings');
-if(saved){ if(saved.rules) S.rules=saved.rules; ['lang','handsFree','autoYN','rate','mode'].forEach(function(k){ if(saved[k]!=null) S[k]=saved[k]; }); }
-function saveSettings(){ store.set('cz-settings',{rules:S.rules,lang:S.lang,handsFree:S.handsFree,autoYN:S.autoYN,rate:S.rate,mode:S.mode}); }
+if(saved){ if(saved.rules) S.rules=saved.rules; ['lang','handsFree','autoYN','rate','mode'].forEach(function(k){ if(saved[k]!=null) S[k]=saved[k]; }); if(saved.voice) S.voice=saved.voice; }
+function saveSettings(){ store.set('cz-settings',{rules:S.rules,lang:S.lang,handsFree:S.handsFree,autoYN:S.autoYN,rate:S.rate,mode:S.mode,voice:S.voice}); }
 function dateKey(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function recKey(){ return 'cz-rec-'+dateKey()+'-'+S.shift; }
 function saveRec(){ store.set(recKey(),S.rec); }
@@ -373,6 +381,8 @@ var RE={
   done:/^(끝|끝났|완료|다 ?했|마침|done|finished?|that'?s all)/i,
   doneForce:/(그래도 ?끝|force|finish anyway)/i,
   undo:/^(취소|정정|지워|삭제|undo|cancel|delete)/i,
+  slow:/(천천히|느리게|slower|slow down)/i,
+  fast:/(빠르게|더 빨리|faster|speed up)/i,
   line:/(라인 ?체크|line ?check)/i,
   start:/(점검|체크|시작|크리티컬|start|check|begin)/i
 };
@@ -414,7 +424,7 @@ function ruleSpeak(it){
 }
 var TT={
  ko:{
-  hello:'점검을 시작합니다. ', sec:function(s){return s.ko+' 항목입니다. ';},
+  hello:'점검을 시작합니다. 항목을 읽어 드릴 테니, 맞으면 예, 아니면 아니요라고 답해 주세요. ', slower:'천천히 말할게요. ', faster:'조금 빠르게 말할게요. ', sec:function(s){return s.ko+' 항목입니다. ';},
   needYN:'예 또는 아니요로 말씀해 주세요.', needNum:'숫자를 못 알아들었어요. 숫자로 다시 말씀해 주세요.',
   implaus:'값이 너무 이상해요. 다시 말씀해 주세요.', okq:', 맞나요?', unsure:'잘 못 들었어요. ', again:'알겠어요. 다시 말씀해 주세요.',
   oor:function(it,v){return '주의. '+fmt(it,v)+', 기준은 '+ruleSpeak(it)+'입니다. 다시 측정한 값을 말씀하시거나, 그대로 기록하려면 그대로라고 말씀해 주세요.';},
@@ -431,7 +441,7 @@ var TT={
   startHint:'라인체크 시작이라고 말씀하시거나 시작 버튼을 눌러 주세요.'
  },
  en:{
-  hello:'Starting the check. ', sec:function(s){return s.en+'. ';},
+  hello:'Starting the check. I will read each statement. Say yes if it is true, otherwise say no. ', slower:'Speaking more slowly. ', faster:'Speaking a bit faster. ', sec:function(s){return s.en+'. ';},
   needYN:'Please say yes or no.', needNum:'I did not catch a number. Please say the reading.',
   implaus:'That value looks off. Please say it again.', okq:', correct?', unsure:'I am not sure I heard that. ', again:'OK, please say it again.',
   oor:function(it,v){return 'Warning. '+fmt(it,v)+'. The limit is '+ruleSpeak(it)+'. Say a new reading, or say keep it to record as is.';},
@@ -451,15 +461,59 @@ var TT={
 function T(k){ var f=TT[S.lang][k]; if(typeof f==='function') return f.apply(null,[].slice.call(arguments,1)); return f; }
 function promptOf(it){
   var ko=S.lang==='ko';
-  if(it.type==='yn') return ko? it.ko : it.en+'. Yes or no?';
+  if(it.type==='yn') return ko? it.ko : it.en+'.';
   if(it.type==='num') return ko? it.ko : it.en+'. What is the reading?';
-  if(it.type==='multi') return (ko? it.ko : it.en+'.')+T('multiAsk',it.min);
-  return ko? it.ko : it.en+'.';
+  if(it.type==='multi') return (ko? it.ko : (it.qen||it.en+'.'))+T('multiAsk',it.min);
+  return ko? it.ko : (it.qen||it.en+'.');
 }
 
 /* ================= 음성 입출력 ================= */
 var R=null;
 function setState(s){ S.state=s; var mic=$('#mic'); mic.dataset.state=s; var lbl={idle:'대기 · 마이크를 누르세요',speaking:'읽는 중',listening:'듣는 중'}[s]||''; if(!S.mic&&s==='idle') lbl='입력창이나 버튼으로 답하세요'; if(S.paused) lbl='일시정지'; $('#stateLbl').textContent=lbl; }
+function voiceList(){
+  var vs=[]; try{ if('speechSynthesis' in window&&typeof speechSynthesis.getVoices==='function') vs=speechSynthesis.getVoices()||[]; }catch(e){}
+  var pre=S.lang==='ko'?'ko':'en';
+  return vs.filter(function(v){ return v.lang&&String(v.lang).toLowerCase().replace('_','-').indexOf(pre)===0; });
+}
+function pickVoice(){
+  var list=voiceList(); if(!list.length) return null;
+  var want=S.voice[S.lang];
+  if(want){ for(var i=0;i<list.length;i++){ if(list[i].voiceURI===want) return list[i]; } }
+  function score(v){
+    var n=(v.name||'')+' '+(v.voiceURI||''), sc=0;
+    if(/google/i.test(n)) sc+=3;
+    if(/neural|natural|online|wavenet|premium|enhanced/i.test(n)) sc+=4;
+    if(v.localService===false) sc+=1;
+    if(S.lang==='en'&&/en[-_]us/i.test(v.lang)) sc+=1;
+    return sc;
+  }
+  return list.slice().sort(function(a,b){return score(b)-score(a);})[0];
+}
+function speechClean(t){
+  if(S.lang!=='en') return t;
+  return t.replace(/\s*\(([^)]*)\)/g,', $1').replace(/\s-\s/g,', ').replace(/#(\d+)/g,'number $1').replace(/\s\/\s/g,' and ').replace(/\bw\//g,'with');
+}
+function fmtRate(){ return (Math.round(S.rate*100)/100)+'배'; }
+function syncRate(){ var r=$('#rateRange'); if(r) r.value=S.rate; var v=$('#rateVal'); if(v) v.textContent=fmtRate(); }
+function renderVset(){
+  var w=$('#vsetWrap'); if(!w) return;
+  var d0=w.querySelector('details'), wasOpen=!!(d0&&d0.open);
+  var list=voiceList(), cur=pickVoice(), ko=S.lang==='ko';
+  var opts=list.length?list.map(function(v){ return '<option value="'+esc(v.voiceURI)+'"'+(cur&&cur.voiceURI===v.voiceURI?' selected':'')+'>'+esc(v.name)+' ('+esc(v.lang)+')'+(v.localService===false?' · 온라인':'')+'</option>'; }).join(''):'<option value="">이 기기에서 음성을 찾지 못했어요</option>';
+  var note=list.length
+    ? '목소리는 이 휴대폰에 설치된 음성 중에서 고를 수 있어요. 더 자연스러운 음성은 휴대폰 설정의 텍스트 음성 변환에서 음성 데이터를 설치하면 목록에 나타날 수 있어요.'
+    : (ko?'한국어':'영어')+' 음성을 찾지 못했어요. 휴대폰 설정의 텍스트 음성 변환에서 음성 데이터를 설치해 보세요.';
+  w.innerHTML='<details class="card" id="vset"'+(wasOpen?' open':'')+'><summary>음성 설정 <small class="muted">목소리 · 속도</small></summary>'
+   +'<div class="vrow"><label for="voiceSel">목소리 ('+(ko?'한국어':'English')+')</label><select id="voiceSel">'+opts+'</select></div>'
+   +'<div class="vrow"><label for="rateRange">읽는 속도 <b id="rateVal">'+esc(fmtRate())+'</b></label><input type="range" id="rateRange" min="0.6" max="1.6" step="0.05" value="'+S.rate+'"></div>'
+   +'<div class="row" style="margin-top:12px"><button class="btn small" id="btnTest" type="button">들어보기</button></div>'
+   +'<p class="small muted" style="margin:10px 0 0">'+esc(note)+'</p></details>';
+}
+function testVoice(){
+  stopListen(); S.token++;
+  var sample=S.lang==='ko'?'안녕하세요. 워크인 냉장고 온도는 삼십팔 도입니다. 맞으면 예라고 답해 주세요.':'Hello. The walk-in cooler reads thirty eight degrees. Say yes if that is correct.';
+  setState('speaking'); speak(sample).then(function(){ setState('idle'); });
+}
 function speak(text){
   return new Promise(function(res){
     if(!S.tts){ return res(); }
@@ -467,10 +521,12 @@ function speak(text){
     var fin=function(){ if(!done){done=true;clearTimeout(t);res();} };
     try{
       speechSynthesis.cancel();
-      var u=new SpeechSynthesisUtterance(text);
-      u.lang=S.lang==='ko'?'ko-KR':'en-US'; u.rate=S.rate;
+      var u=new SpeechSynthesisUtterance(speechClean(text));
+      var v=pickVoice();
+      u.lang=v?v.lang:(S.lang==='ko'?'ko-KR':'en-US'); u.rate=S.rate;
+      if(v) u.voice=v;
       u.onend=fin; u.onerror=fin;
-      t=setTimeout(fin,1500+text.length*170);
+      t=setTimeout(fin,1500+text.length*170/Math.max(S.rate,0.5));
       speechSynthesis.speak(u);
     }catch(e){ fin(); }
   });
@@ -696,6 +752,8 @@ function route(text,alts){
   if(S.paused){ if(/(시작|계속|재개|resume|continue|go)/i.test(t)) resume(); return; }
   var short=t.length<=12&&S.phase!=='action';
   if(short){
+    if(RE.slow.test(t)&&S.running){ S.rate=Math.max(0.6,Math.round((S.rate-0.15)*100)/100); saveSettings(); syncRate(); return reply(T('slower')+promptOf(cur())); }
+    if(RE.fast.test(t)&&S.running){ S.rate=Math.min(1.6,Math.round((S.rate+0.15)*100)/100); saveSettings(); syncRate(); return reply(T('faster')+promptOf(cur())); }
     if(RE.pause.test(t)) return pause();
     if(RE.back.test(t)) return goBack();
     if(RE.repeat.test(t)&&S.phase!=='oor') return reply(promptOf(cur()));
@@ -735,10 +793,12 @@ function renderRun(){
     if(S.done||c.done){ h+='<div class="card" style="margin-top:14px"><div class="eyebrow">진행 현황</div>'+sumHtml()+'</div>'; }
   } else {
     var it=cur(), c2=counts(), pct=Math.round(S.idx/ITEMS.length*100);
-    h+='<div class="prog"><div class="prog-top"><span>'+esc(SECS[it.sec].ko)+'</span><span>'+S.idx+' / '+(ITEMS.length-1)+'</span></div><div class="bar"><i style="width:'+pct+'%"></i></div></div>';
-    h+='<div class="card q" style="margin-top:14px"><div class="eyebrow">'+esc(SECS[it.sec].en)+'</div>';
-    h+='<p class="q-ko">'+esc(it.ko)+'</p><p class="q-en">'+esc(it.en)+'</p>';
-    if(it.hint) h+='<p class="q-hint">'+esc(it.hint)+'</p>';
+    h+='<div class="prog"><div class="prog-top"><span>'+esc(secName(it.sec))+'</span><span>'+S.idx+' / '+(ITEMS.length-1)+'</span></div><div class="bar"><i style="width:'+pct+'%"></i></div></div>';
+    var isEn=S.lang==='en';
+    h+='<div class="card q" style="margin-top:14px">'+(isEn?'':'<div class="eyebrow">'+esc(SECS[it.sec].en)+'</div>');
+    h+='<p class="q-ko">'+esc(isEn?(it.type==='yn'||it.type==='num'?it.en:(it.qen||it.en)):it.ko)+'</p>'+(isEn?'':'<p class="q-en">'+esc(it.en)+'</p>');
+    if(it.type==='yn') h+='<p class="q-en">'+(isEn?'True: say yes · Not true: say no':'맞으면 예 · 아니면 아니요')+'</p>';
+    if(hintOf(it)) h+='<p class="q-hint">'+esc(hintOf(it))+'</p>';
     if(it.rule) h+='<span class="badge">기준 '+esc(ruleText(it.rule))+'</span>';
     if(it.type==='num'){
       var p=S.pend, v=p&&p.kind==='val'?p.v:null, bad=p&&p.st&&p.st!=='ok';
@@ -759,18 +819,21 @@ function renderRun(){
 var SEC_ORDER=['fac','temp','beh','line'];
 function secIdx(sec){ var a=[]; ITEMS.forEach(function(it,i){ if(it.sec===sec) a.push(i); }); return a; }
 function secCount(sec){ var a=secIdx(sec), d=0; a.forEach(function(i){ if(S.rec[ITEMS[i].id]) d++; }); return d+' / '+a.length; }
+function nameOf(it){ if(S.lang==='en') return it.en; return (it.nm||it.ko).replace(/[.?？]$/,''); }
+function secName(sec){ return S.lang==='en'?SECS[sec].en:SECS[sec].ko; }
+function hintOf(it){ return S.lang==='en'?(it.hintEn||''):(it.hint||''); }
 function unitOf(it){ return it.unit==='ppm'?'ppm':'°F'; }
 function fItemHtml(it,i){
   var r=S.rec[it.id], bad=r&&r.status!=='ok'&&r.status!=='skip';
   var h='<div class="f-item'+(bad?' bad':'')+'" id="fi-'+i+'" data-i="'+i+'">';
-  h+='<div class="f-head"><div class="f-name">'+esc(it.nm||it.ko.replace(/[?？]$/,''))+'<span class="f-en">'+esc(it.en)+'</span></div>'+pillFor(r)+'</div>';
-  if(it.hint) h+='<p class="q-hint">'+esc(it.hint)+'</p>';
+  h+='<div class="f-head"><div class="f-name">'+esc(nameOf(it))+(S.lang==='en'?'':'<span class="f-en">'+esc(it.en)+'</span>')+'</div>'+pillFor(r)+'</div>';
+  if(hintOf(it)) h+='<p class="q-hint">'+esc(hintOf(it))+'</p>';
   if(it.type==='yn'){
     var v=r&&r.value;
-    h+='<div class="seg" role="group" aria-label="응답"><button type="button" data-fy="y" aria-pressed="'+(v==='Yes')+'">예</button><button type="button" data-fy="n" aria-pressed="'+(v==='No')+'">아니요</button><button type="button" data-fy="na" aria-pressed="'+(!!r&&r.status==='skip')+'">해당없음</button></div>';
+    h+='<div class="seg" role="group" aria-label="응답"><button type="button" data-fy="y" aria-pressed="'+(v==='Yes')+'">'+(S.lang==='en'?'Yes':'예')+'</button><button type="button" data-fy="n" aria-pressed="'+(v==='No')+'">'+(S.lang==='en'?'No':'아니요')+'</button><button type="button" data-fy="na" aria-pressed="'+(!!r&&r.status==='skip')+'">'+(S.lang==='en'?'N/A':'해당없음')+'</button></div>';
   } else if(it.type==='num'){
     var val=r&&r.status!=='skip'?r.value:'';
-    h+='<div class="f-num"><input type="number" inputmode="decimal" step="any" id="n-'+i+'" data-fnum value="'+esc(val)+'" aria-label="'+esc(it.nm||'값')+'" placeholder="–"><span class="f-unit">'+unitOf(it)+'</span>'+(it.rule&&S.rules[it.rule]?'<span class="badge">기준 '+esc(ruleText(it.rule))+'</span>':'')+'<button type="button" class="btn small" data-fna aria-pressed="'+(!!r&&r.status==='skip')+'">N/A</button></div>';
+    h+='<div class="f-num"><input type="number" inputmode="decimal" step="any" id="n-'+i+'" data-fnum value="'+esc(val)+'" aria-label="'+esc(nameOf(it))+'" placeholder="–"><span class="f-unit">'+unitOf(it)+'</span>'+(it.rule&&S.rules[it.rule]?'<span class="badge">기준 '+esc(ruleText(it.rule))+'</span>':'')+'<button type="button" class="btn small" data-fna aria-pressed="'+(!!r&&r.status==='skip')+'">N/A</button></div>';
     if(r&&r.status==='out') h+='<p class="f-msg">기준 이탈: '+esc(r.value)+' '+unitOf(it)+' (기준 '+esc(ruleText(it.rule))+')</p>';
   } else if(it.type==='multi'){
     var vals=r&&r.vals||[];
@@ -794,14 +857,15 @@ function renderForm(){
   var h='';
   h+='<div class="card"><div class="eyebrow">오늘 점검</div><h2 style="margin:4px 0 12px">'+esc(dateKey())+' · '+(S.shift==='lunch'?'점심':'저녁')+'</h2>';
   h+='<div class="row" style="margin-bottom:14px"><div class="field"><span class="eyebrow">근무</span><div class="seg" role="group" aria-label="근무"><button type="button" data-shift="lunch" aria-pressed="'+(S.shift==='lunch')+'">점심</button><button type="button" data-shift="dinner" aria-pressed="'+(S.shift==='dinner')+'">저녁</button></div></div>';
-  h+='<div class="field"><label class="eyebrow" for="mgr">담당 매니저</label><input id="mgr" data-fmgr type="text" style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 11px" value="'+esc(mgr?mgr.value:'')+'" placeholder="이름"></div></div>';
+  h+='<div class="field"><span class="eyebrow">언어</span><div class="seg" role="group" aria-label="언어"><button type="button" data-lang="ko" aria-pressed="'+(S.lang==='ko')+'">한국어</button><button type="button" data-lang="en" aria-pressed="'+(S.lang==='en')+'">English</button></div></div></div>';
+  h+='<div class="field" style="margin-bottom:14px"><label class="eyebrow" for="mgr">담당 매니저</label><input id="mgr" data-fmgr type="text" style="border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 11px" value="'+esc(mgr?mgr.value:'')+'" placeholder="이름"></div>';
   h+='<div class="prog" id="fProg">'+fProgHtml()+'</div><div id="fSum">'+sumHtml()+'</div>';
   h+='<div class="row" style="margin-top:12px"><button class="btn" type="button" data-mode="voice">여기부터 음성으로</button><button class="btn" type="button" data-tab="log">기록·내보내기</button></div></div>';
-  h+='<div class="jumps" style="margin-top:14px">'+SEC_ORDER.map(function(k){return '<button type="button" data-fsec="'+k+'">'+esc(SECS[k].ko)+'</button>';}).join('')+'</div>';
+  h+='<div class="jumps" style="margin-top:14px">'+SEC_ORDER.map(function(k){return '<button type="button" data-fsec="'+k+'">'+esc(secName(k))+'</button>';}).join('')+'</div>';
   h+='<div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">';
   SEC_ORDER.forEach(function(sec){
     var isOpen=(sec in S.openSec)?S.openSec[sec]:(sec===openSec);
-    h+='<details class="f-sec" id="fs-'+sec+'" data-sec="'+sec+'"'+(isOpen?' open':'')+'><summary><span>'+esc(SECS[sec].ko)+'<small>'+esc(SECS[sec].en)+'</small></span><span class="f-count" id="sc-'+sec+'">'+secCount(sec)+'</span></summary><div class="f-items">';
+    h+='<details class="f-sec" id="fs-'+sec+'" data-sec="'+sec+'"'+(isOpen?' open':'')+'><summary><span>'+esc(secName(sec))+(S.lang==='en'?'':'<small>'+esc(SECS[sec].en)+'</small>')+'</span><span class="f-count" id="sc-'+sec+'">'+secCount(sec)+'</span></summary><div class="f-items">';
     secIdx(sec).forEach(function(i){ h+=fItemHtml(ITEMS[i],i); });
     h+='</div></details>';
   });
@@ -885,8 +949,8 @@ function renderLog(){
   var any=false;
   ITEMS.forEach(function(it,i){
     var r=S.rec[it.id]; if(!r||it.sec==='head') return; any=true;
-    h+='<button class="item" type="button" data-jump="'+i+'">'+pillFor(r)+'<span class="nm">'+esc(it.ko.replace(/[?？]$/,''))+'</span>'
-     +'<span class="en">'+esc(it.en)+'</span><span class="val">'+esc(valText(it,r))+'</span>'
+    h+='<button class="item" type="button" data-jump="'+i+'">'+pillFor(r)+'<span class="nm">'+esc(nameOf(it))+'</span>'
+     +(S.lang==='en'?'':'<span class="en">'+esc(it.en)+'</span>')+'<span class="val">'+esc(valText(it,r))+'</span>'
      +(r.action?'<span class="act">시정조치: '+esc(r.action)+'</span>':(r.status!=='ok'&&r.status!=='skip'?'<span class="act">시정조치 미기재</span>':''))
      +(r.hist&&r.hist.length?'<span class="hist">정정 이력: '+r.hist.map(function(x){return esc(x.v)+' ('+esc(x.why)+')';}).join(', ')+'</span>':'')+'</button>';
   });
@@ -907,7 +971,7 @@ function renderRules(){
   h+='<div class="card" style="margin-top:14px"><h2>진행 방식</h2>'
    +'<label class="toggle"><span>예 / 아니요 답변은 되읽지 않고 바로 다음으로<br><span class="small muted">숫자는 항상 되읽어 확인합니다</span></span><input type="checkbox" id="optAuto" '+(S.autoYN?'checked':'')+'></label>'
    +'<label class="toggle"><span>읽은 뒤 마이크 자동으로 켜기</span><input type="checkbox" id="optHands" '+(S.handsFree?'checked':'')+'></label>'
-   +'<div class="toggle"><span>읽는 속도</span><div class="seg" style="width:180px" role="group" aria-label="읽는 속도"><button type="button" data-rate="0.9" aria-pressed="'+(S.rate===0.9)+'">느리게</button><button type="button" data-rate="1" aria-pressed="'+(S.rate===1)+'">보통</button><button type="button" data-rate="1.2" aria-pressed="'+(S.rate===1.2)+'">빠르게</button></div></div>'
+   +'<div class="toggle"><span>목소리·읽는 속도<br><span class="small muted">음성 모드 화면의 &ldquo;음성 설정&rdquo;에서 바꿉니다</span></span></div>'
    +'<div class="toggle"><span>기준치 초기화</span><button class="btn small" id="btnReset" type="button">기본값으로</button></div></div>';
   el.innerHTML=h;
 }
@@ -919,6 +983,7 @@ function render(){
   $('#m-form').setAttribute('aria-pressed',S.mode==='form'?'true':'false');
   $('#m-voice').setAttribute('aria-pressed',S.mode==='voice'?'true':'false');
   $('#dock').hidden=(S.tab!=='run'||S.mode!=='voice');
+  $('#vsetWrap').hidden=(S.tab!=='run'||S.mode!=='voice');
   var mic=$('#mic'); mic.disabled=!S.mic;
   $('#quick').hidden=!S.running;
   if(S.mode==='voice'&&!S.mic&&!S.running) $('#stateLbl').textContent='입력창으로 시작할 수 있어요';
@@ -969,7 +1034,8 @@ document.addEventListener('click',function(e){
   if(b.id==='btnStart') return begin();
   if(b.id==='btnResume') return resume();
   if(b.dataset.shift){ S.shift=b.dataset.shift; loadRec(); return render(); }
-  if(b.dataset.lang){ S.lang=b.dataset.lang; saveSettings(); return render(); }
+  if(b.dataset.lang){ S.lang=b.dataset.lang; saveSettings(); renderVset(); return render(); }
+  if(b.id==='btnTest') return testVoice();
   if(b.dataset.rate){ S.rate=parseFloat(b.dataset.rate); saveSettings(); return render(); }
   if(b.id==='btnXlsx') return exportXlsx();
   if(b.id==='btnCopy') return copyTable();
@@ -988,6 +1054,7 @@ document.addEventListener('click',function(e){
 });
 document.addEventListener('change',function(e){
   var t=e.target;
+  if(t.id==='voiceSel'){ S.voice[S.lang]=t.value||null; saveSettings(); return; }
   if(t.dataset&&t.dataset.fnum!=null){ return fNum(itemIndexOf(t),t.value.trim()); }
   if(t.dataset&&t.dataset.ftext!=null){
     var ti=itemIndexOf(t), tit=ITEMS[ti], tv=t.value.trim();
@@ -1007,6 +1074,10 @@ document.addEventListener('change',function(e){
   if(t.id==='optAuto'){ S.autoYN=t.checked; saveSettings(); }
   if(t.id==='optHands'){ S.handsFree=t.checked; saveSettings(); }
 });
+document.addEventListener('input',function(e){
+  var t=e.target;
+  if(t.id==='rateRange'){ S.rate=parseFloat(t.value)||1; var v=$('#rateVal'); if(v) v.textContent=fmtRate(); saveSettings(); }
+});
 document.addEventListener('keydown',function(e){
   if(e.key!=='Enter') return;
   var t=e.target;
@@ -1019,6 +1090,8 @@ $('#sayForm').addEventListener('submit',function(e){
   addChat('me',v); route(v);
 });
 window.CZ={S:S,ITEMS:ITEMS,setMode:setMode,route:route,parseNum:parseNum,parseYN:parseYN,begin:begin,buildRows:buildRows,evalRule:evalRule};
+renderVset();
+try{ if('speechSynthesis' in window&&speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged',renderVset); }catch(e){}
 showTab(); setState('idle');
 })();
 </script>
