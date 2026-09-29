@@ -162,6 +162,10 @@ details.card>summary{cursor:pointer;font-weight:700}
 .bi-i{font-size:.8em;font-weight:400;opacity:.85;letter-spacing:0;text-transform:none}
 .pill .bi-i{font-size:.95em}
 .rule label span{font-family:var(--font-num);font-size:.85rem}
+.sync{margin-top:4px;font-size:.72rem;color:var(--ok);font-weight:500}
+.sync.off{color:var(--muted)}
+.sync.bad{color:var(--bad)}
+.vrow input[type=text],.vrow input[type=url],.vrow input[type=password]{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:10px 11px}
 .jumps button{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:6px 13px;font-size:.85rem;font-weight:500}
 </style>
 
@@ -171,7 +175,7 @@ details.card>summary{cursor:pointer;font-weight:700}
       <span class="brand-mark">CZ</span>
       <div><h1>The Critical Zone</h1><p id="brandSub"></p></div>
     </div>
-    <div class="when" id="when"></div>
+    <div class="when"><div id="when"></div><div class="sync off" id="syncBadge"></div></div>
   </header>
   <div class="modebar">
     <div class="seg" role="group" aria-label="Input mode">
@@ -296,7 +300,7 @@ add({sec:'line',type:'text',key:'linenotes',nm:'행동 관찰·라인 체크 특
 var now = new Date();
 var S = {
   running:false, paused:false, idx:0, phase:'idle', pend:null, trail:[], rec:{},
-  lang:'en', unit:'F', ui:'bi', shift: now.getHours()<15?'lunch':'dinner',
+  lang:'en', unit:'F', ui:'bi', sync:{url:'',key:'',who:'',on:true,last:null,err:''}, view:null, back:null, shift: now.getHours()<15?'lunch':'dinner',
   mic:!!SR, micNote:'', tts:('speechSynthesis' in window), handsFree:true, autoYN:true, rate:1,
   rules:JSON.parse(JSON.stringify(DEFAULT_RULES)), startSec:null,
   chat:[], state:'idle', token:0, silent:0, tab:'run', done:false, mode:'form', openSec:{}, fmsg:{}, voice:{ko:null,en:null}
@@ -304,12 +308,14 @@ var S = {
 var saved = store.get('cz-settings');
 if(saved){
   if(saved.rules) Object.keys(S.rules).forEach(function(k){ var o=saved.rules[k]; if(!o) return; ['min','max'].forEach(function(m){ if(m in S.rules[k]&&typeof o[m]==='number') S.rules[k][m]=o[m]; }); });
-  ['lang','handsFree','autoYN','rate','mode','unit','ui'].forEach(function(k){ if(saved[k]!=null) S[k]=saved[k]; }); if(saved.voice) S.voice=saved.voice;
+  ['lang','handsFree','autoYN','rate','mode','unit','ui'].forEach(function(k){ if(saved[k]!=null) S[k]=saved[k]; });
+  if(saved.sync){ ['url','key','who'].forEach(function(k){ if(typeof saved.sync[k]==='string') S.sync[k]=saved.sync[k]; }); if(saved.sync.on===false) S.sync.on=false; } if(saved.voice) S.voice=saved.voice;
 }
-function saveSettings(){ store.set('cz-settings',{rules:S.rules,lang:S.lang,handsFree:S.handsFree,autoYN:S.autoYN,rate:S.rate,mode:S.mode,voice:S.voice,unit:S.unit,ui:S.ui}); }
-function dateKey(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function saveSettings(){ store.set('cz-settings',{sync:{url:S.sync.url,key:S.sync.key,who:S.sync.who,on:S.sync.on},rules:S.rules,lang:S.lang,handsFree:S.handsFree,autoYN:S.autoYN,rate:S.rate,mode:S.mode,voice:S.voice,unit:S.unit,ui:S.ui}); }
+function dateKey(){ if(S.view) return S.view.date; var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function recKey(){ return 'cz-rec-'+dateKey()+'-'+S.shift; }
-function saveRec(){ store.set(recKey(),S.rec); }
+function saveRecLocal(){ store.set(recKey(),S.rec); }
+function saveRec(){ if(S.view) return; saveRecLocal(); syncScan(); }
 function loadRec(){ S.rec=store.get(recKey())||{}; }
 loadRec();
 function cur(){ return ITEMS[S.idx]; }
@@ -631,6 +637,7 @@ function begin(startSec){
   present(S.rec[ITEMS[0].id]&&idx>0?T('resumeNote'):T('hello'));
 }
 function setMode(m){
+  if(S.view){ exitView(); S.tab='run'; }
   if(S.mode===m) return;
   S.mode=m; saveSettings();
   if(m==='form'){
@@ -803,6 +810,118 @@ function route(text,alts){
   }
   var h=H[S.phase]; if(h) return h(t,alts);
 }
+
+/* ================= 클라우드 저장 (Google Sheet) & 기록 보관 ================= */
+var Q={map:store.get('cz-queue')||{},sent:store.get('cz-sent')||{}};
+function persistQ(){ store.set('cz-queue',Q.map); store.set('cz-sent',Q.sent); }
+function hs(str){ var h=5381; for(var i=0;i<str.length;i++) h=((h<<5)+h+str.charCodeAt(i))|0; return String(h); }
+function syncOn(){ return !!(S.sync.url&&S.sync.key&&S.sync.on!==false); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function rowFor(it,r){
+  var mg=S.rec[ITEMS[0].id], k=dateKey()+'|'+S.shift+'|'+it.id, d=new Date(r.at);
+  var ans=r.value, ansC='', unit='';
+  if(it.type==='num'&&typeof r.value==='number'){ if(isTemp(it)){ unit='°F'; ansC=r1(fToC(r.value)); } else unit='ppm'; }
+  else if(it.type==='multi'){ ans=String(r.value); if(isTemp(it)){ unit='°F'; ansC=ans.split(', ').map(function(s){return r1(fToC(parseFloat(s)));}).join(', '); } else unit='ppm'; }
+  var st={ok:'OK 정상',skip:'Skipped 건너뜀',fail:'No 아니요',out:'Out of range 기준 이탈',short:'Under 5 5회 미달'}[r.status]||r.status;
+  var lim=(it.rule&&S.rules[it.rule])?ruleText(it.rule):'';
+  var v=[k,dateKey(),S.shift==='lunch'?'Lunch':'Dinner',mg?mg.value:'',S.sync.who||'',pad2(d.getHours())+':'+pad2(d.getMinutes()),SECS[it.sec].en,it.en,(it.nm||it.ko).replace(/[.?？]$/,''),ans,unit,ansC,lim,st,r.action||'',(r.hist||[]).map(function(x){return dvAny(it,x.v)+' ('+whyText(x.why)+')';}).join('; '),r.at,JSON.stringify({id:it.id,rec:r})];
+  return {k:k,v:v,sg:hs(JSON.stringify(v.slice(0,16))),raw:v[17]};
+}
+var flushTimer=null, flushing=false;
+function syncScan(){
+  if(S.view||!syncOn()) return;
+  ITEMS.forEach(function(it){
+    var r=S.rec[it.id], k=dateKey()+'|'+S.shift+'|'+it.id;
+    if(!r){ if(Q.sent[k]) Q.map[k]={k:k,del:true}; else delete Q.map[k]; return; }
+    var ro=rowFor(it,r);
+    if(Q.sent[k]===ro.sg) delete Q.map[k]; else Q.map[k]=ro;
+  });
+  persistQ(); updateBadge();
+  clearTimeout(flushTimer); flushTimer=setTimeout(flush,1200);
+}
+function qCount(){ return Object.keys(Q.map).length; }
+function flush(){
+  if(!syncOn()||flushing) return Promise.resolve();
+  var rows=Object.keys(Q.map).map(function(k){return Q.map[k];});
+  if(!rows.length){ S.sync.err=''; updateBadge(); return Promise.resolve(); }
+  flushing=true; updateBadge();
+  return fetch(S.sync.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:S.sync.key,rows:rows.map(function(r){return r.del?{k:r.k,del:true}:{k:r.k,v:r.v,raw:r.raw};})})})
+   .then(function(r){ return r.json(); })
+   .then(function(j){
+     if(!j.ok) throw new Error(j.error||'error');
+     rows.forEach(function(r){ if(r.del) delete Q.sent[r.k]; else Q.sent[r.k]=r.sg; if(Q.map[r.k]===r) delete Q.map[r.k]; });
+     persistQ(); S.sync.last=new Date(); S.sync.err='';
+   })
+   .catch(function(e){ S.sync.err=String((e&&e.message)||e); })
+   .then(function(){ flushing=false; updateBadge(); if(qCount()&&!S.sync.err) setTimeout(flush,300); });
+}
+function editing(){ var a=document.activeElement; return !!(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.tagName==='SELECT')); }
+function renderSoon(){ if(editing()) return setTimeout(renderSoon,2500); render(); }
+function pull(manual){
+  if(!syncOn()||S.view) return Promise.resolve(0);
+  var u=S.sync.url+(S.sync.url.indexOf('?')<0?'?':'&')+'action=day&key='+encodeURIComponent(S.sync.key)+'&date='+dateKey()+'&shift='+S.shift;
+  var sh=S.shift, dk=dateKey();
+  return fetch(u).then(function(r){return r.json();}).then(function(j){
+    if(!j.ok) throw new Error(j.error||'error');
+    if(S.shift!==sh||dateKey()!==dk||S.view) return 0;
+    var n=0;
+    (j.rows||[]).forEach(function(raw){
+      var o; try{ o=JSON.parse(raw); }catch(e){ return; }
+      var it=ITEMS.filter(function(x){return x.id===o.id;})[0]; if(!it||!o.rec) return;
+      var l=S.rec[o.id];
+      if(!l||String(o.rec.at)>String(l.at)){ S.rec[o.id]=o.rec; Q.sent[dk+'|'+sh+'|'+o.id]=rowFor(it,o.rec).sg; delete Q.map[dk+'|'+sh+'|'+o.id]; n++; }
+    });
+    if(n){ saveRecLocal(); persistQ(); if(!S.running) renderSoon(); }
+    S.sync.err=''; updateBadge(); return n;
+  }).catch(function(e){ S.sync.err=String((e&&e.message)||e); updateBadge(); return -1; });
+}
+function syncStatusHtml(){
+  if(!syncOn()) return Bi('Local only','이 폰에만 저장');
+  var n=qCount();
+  if(S.sync.err) return '⚠ '+Bi('Not synced','미전송')+(n?' · '+n:'');
+  if(flushing||n) return '☁ '+Bi('Saving…','저장 중')+(n?' · '+n:'');
+  return '☁ '+Bi('Saved','저장됨')+(S.sync.last?' '+pad2(S.sync.last.getHours())+':'+pad2(S.sync.last.getMinutes()):'');
+}
+function updateBadge(){
+  var b=$('#syncBadge'); if(b){ b.innerHTML=syncStatusHtml(); b.className='sync'+(syncOn()?(S.sync.err?' bad':''):' off'); }
+  var m=$('#syncLine'); if(m) m.innerHTML=syncStatusHtml();
+}
+function historyList(){
+  var out=[];
+  try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i), m=k&&k.match(/^cz-rec-(\d{4}-\d\d-\d\d)-(lunch|dinner)$/); if(m){ var rec=store.get(k)||{}, c={n:0,bad:0}; Object.keys(rec).forEach(function(id){ if(id==='i0') return; c.n++; if(rec[id].status!=='ok'&&rec[id].status!=='skip') c.bad++; }); if(c.n) out.push({date:m[1],shift:m[2],n:c.n,bad:c.bad}); } } }catch(e){}
+  out.sort(function(a,b){ return a.date===b.date?(a.shift<b.shift?1:-1):(a.date<b.date?1:-1); });
+  return out;
+}
+function openView(date,shift){
+  if(S.running) pause();
+  if(!S.view) S.back={shift:S.shift};
+  S.view={date:date,shift:shift}; S.shift=shift; S.rec=store.get('cz-rec-'+date+'-'+shift)||{}; S.tab='log'; showTab(); window.scrollTo(0,0);
+}
+function exitView(){
+  if(!S.view) return;
+  S.shift=S.back?S.back.shift:S.shift; S.view=null; S.back=null; loadRec();
+}
+function historyHtml(){
+  var l=historyList();
+  var h='<div class="card" style="margin-top:14px"><h2>'+B('History','기록 보관')+'</h2><p class="small muted" style="margin:4px 0 8px">'+B('Saved on this phone. With cloud save on, the same records are in your Google Sheet.','이 폰에 저장된 기록입니다. 클라우드 저장을 켜면 같은 기록이 구글 시트에도 쌓입니다.')+'</p><div class="list">';
+  if(!l.length) h+='<span class="muted small">'+Bi('No saved days yet','저장된 날짜가 아직 없어요')+'</span>';
+  l.slice(0,40).forEach(function(x){
+    h+='<button type="button" class="item" data-hist="'+x.date+'|'+x.shift+'"><span class="nm">'+esc(x.date)+' · '+(x.shift==='lunch'?Bi('Lunch','점심'):Bi('Dinner','저녁'))+'</span><span class="pill '+(x.bad?'bad':'ok')+'">'+x.n+' · '+(x.bad?x.bad+' '+Bi('flagged','이탈'):Bi('OK','정상'))+'</span></button>';
+  });
+  return h+'</div></div>';
+}
+function syncSettingsHtml(){
+  var h='<div class="card" style="margin-top:14px"><h2>'+B('Cloud save (Google Sheet)','클라우드 저장 (구글 시트)')+'</h2>'
+   +'<p class="small muted" style="margin:4px 0 8px">'+B('Records are saved on this phone and also sent to your Google Sheet automatically, so all managers share the same sheet.','기록은 이 폰에 저장되고, 구글 시트로도 자동 전송되어 매니저들이 같은 시트를 함께 씁니다.')+'</p>'
+   +'<div class="vrow"><label for="syUrl">'+B('Web app URL','웹 앱 주소(URL)')+'</label><input type="url" id="syUrl" data-sync="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec" value="'+esc(S.sync.url)+'"></div>'
+   +'<div class="vrow"><label for="syKey">'+B('Secret key','비밀 키')+'</label><input type="password" id="syKey" data-sync="key" autocomplete="off" value="'+esc(S.sync.key)+'"></div>'
+   +'<div class="vrow"><label for="syWho">'+B('Your name (shown as “Recorded by”)','내 이름 (“기록자”로 표시)')+'</label><input type="text" id="syWho" data-sync="who" autocomplete="off" value="'+esc(S.sync.who)+'"></div>'
+   +'<label class="toggle"><span>'+B('Auto-save to the sheet','시트로 자동 저장')+'</span><input type="checkbox" id="syOn" '+(S.sync.on!==false?'checked':'')+'></label>'
+   +'<div class="row" style="margin-top:8px"><button class="btn small" id="btnSyTest" type="button">'+B('Test connection','연결 테스트')+'</button><button class="btn small" id="btnSyAll" type="button">'+B('Send all now','전체 다시 보내기')+'</button></div>'
+   +'<p class="small" id="syncLine" style="margin:10px 0 0">'+syncStatusHtml()+'</p><p class="small muted" id="syMsg" style="margin:4px 0 0"></p></div>';
+  return h;
+}
+function syMsg(en,ko){ var m=$('#syMsg'); if(m) m.textContent=P(en,ko); }
 
 /* ================= 화면 ================= */
 function pillFor(r){
@@ -998,8 +1117,10 @@ function valText(it,r){
 }
 function renderLog(){
   var el=$('#logBody');
-  var h='<div class="card"><div class="eyebrow">'+esc(dateKey())+' · '+shiftHtml()+'</div>'+sumHtml();
-  h+='<div class="row" style="margin-top:12px"><button class="btn primary" id="btnXlsx" type="button">'+B('Download Excel','엑셀로 내려받기')+'</button><button class="btn" id="btnCopy" type="button">'+B('Copy as table','표로 복사')+'</button></div>';
+  var h='';
+  if(S.view) h+='<div class="notice" role="status" style="margin-bottom:12px">'+B('Viewing a past record (read-only).','지난 기록을 보고 있어요 (읽기 전용).')+'<div style="margin-top:8px"><button class="btn small" data-tab="run" type="button">'+B('Back to today','오늘로 돌아가기')+'</button></div></div>';
+  h+='<div class="card"><div class="eyebrow">'+esc(dateKey())+' · '+shiftHtml()+'</div>'+sumHtml();
+  h+='<div class="row" style="margin-top:12px"><button class="btn primary" id="btnXlsx" type="button">'+B('Download Excel','엑셀로 내려받기')+'</button><button class="btn" id="btnCopy" type="button">'+B('Copy as table','표로 복사')+'</button>'+(syncOn()&&!S.view?'<button class="btn" id="btnPull" type="button">'+B('Refresh from sheet','시트에서 새로고침')+'</button>':'')+'</div>';
   h+='<div class="small muted" id="expNote" style="margin-top:8px">'+(window.self!==window.top?B('Downloads are blocked in this shared view. Copy as a table and paste into Excel.','공유 링크 화면에서는 내려받기가 막혀 있어요. 표로 복사해서 엑셀에 붙여넣으세요.'):'')+'</div></div>';
   h+='<div class="list" style="margin-top:14px">';
   var any=false;
@@ -1011,7 +1132,7 @@ function renderLog(){
      +(r.hist&&r.hist.length?'<span class="hist">'+Bi('Edit history','정정 이력')+': '+r.hist.map(function(x){return esc(dvAny(it,x.v))+' ('+esc(whyText(x.why))+')';}).join(', ')+'</span>':'')+'</button>';
   });
   if(!any) h+='<div class="card muted">'+B('No records yet. They appear here once you start the check.','아직 기록이 없어요. 점검을 시작하면 여기에 쌓입니다.')+'</div>';
-  h+='</div>';
+  h+='</div>'+historyHtml();
   el.innerHTML=h;
 }
 function uiSeg(){
@@ -1024,6 +1145,7 @@ function renderRules(){
    +'<div class="vrow"><label>'+B('Temperature unit','온도 단위')+'</label><div class="seg" role="group"><button type="button" data-unit="F" aria-pressed="'+(S.unit==='F')+'">°F</button><button type="button" data-unit="C" aria-pressed="'+(S.unit==='C')+'">°C</button></div>'
    +'<p class="small muted" style="margin:2px 0 0">'+B('Limits always show both °F and °C. This choice sets the unit for entering and reading values.','기준치는 항상 °F와 °C를 함께 보여줍니다. 이 설정은 값을 입력하고 읽어 주는 단위입니다.')+'</p></div>'
    +'<div class="vrow"><label>'+B('Display language','표시 언어')+'</label>'+uiSeg()+'</div></div>';
+  h+=syncSettingsHtml();
   h+='<div class="card" style="margin-top:14px"><h2>'+B('Limits','기준치')+'</h2><p class="small muted" style="margin:4px 0 8px">'+B('These are prototype defaults. Adjust them to your HACCP plan and local rules. If a value outside the limit is reported, the app asks again.','아래 값은 시제품 기본값입니다. 업장의 HACCP 계획과 관할 기준에 맞게 바꿔 사용하세요. 벗어난 값을 말하면 앱이 다시 묻습니다.')+'</p><div class="rules">';
   Object.keys(S.rules).forEach(function(k){
     var r=S.rules[k], d=DEFAULT_RULES[k], ppm=k==='sani', u=ppm?'ppm':'°'+S.unit;
@@ -1055,6 +1177,7 @@ function chrome(){
 function render(){
   chrome();
   $('#when').innerHTML=esc(dateKey())+'<br>'+shiftHtml();
+  updateBadge();
   if(S.tab==='run') renderRun();
   if(S.tab==='log') renderLog();
   if(S.tab==='rules') renderRules();
@@ -1079,7 +1202,7 @@ function buildRows(){
     var ans=r.value;
     if(it.type==='num'&&typeof r.value==='number') ans=dv(it,r.value);
     else if(it.type==='multi') ans=(r.value+'').split(', ').map(function(s){return dv(it,parseFloat(s));}).join(', ');
-    rows.push([dateKey(),S.shift==='lunch'?'Lunch':'Dinner',mgrName,t,SECS[it.sec].en,it.en,it.ko,ans,it.type==='num'||it.type==='multi'?unitOf(it):'',it.rule?ruleText(it.rule):'',st,r.action||'',(r.hist||[]).map(function(x){return dvAny(it,x.v)+' ('+whyText(x.why)+')';}).join('; ')]);
+    rows.push([dateKey(),S.shift==='lunch'?'Lunch':'Dinner',mgrName,t,SECS[it.sec].en,it.en,(it.nm||it.ko).replace(/[.?？]$/,''),ans,it.type==='num'||it.type==='multi'?unitOf(it):'',it.rule?ruleText(it.rule):'',st,r.action||'',(r.hist||[]).map(function(x){return dvAny(it,x.v)+' ('+whyText(x.why)+')';}).join('; ')]);
   });
   return rows;
 }
@@ -1112,10 +1235,14 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('button'); if(!b) return;
   if(b.dataset.mode) return setMode(b.dataset.mode);
   if(S.mode==='form'&&handleFormClick(b)) return;
-  if(b.dataset.tab){ S.tab=b.dataset.tab; return showTab(); }
+  if(b.dataset.hist){ var hp=b.dataset.hist.split('|'); return openView(hp[0],hp[1]); }
+  if(b.dataset.tab){ if(S.view&&b.dataset.tab==='run') exitView(); S.tab=b.dataset.tab; return showTab(); }
+  if(b.id==='btnSyTest'){ syMsg('Testing…','테스트 중…'); return fetch(S.sync.url+(S.sync.url.indexOf('?')<0?'?':'&')+'action=ping&key='+encodeURIComponent(S.sync.key)).then(function(r){return r.json();}).then(function(j){ if(j.ok) syMsg('Connected. Records will be saved to the sheet.','연결됐어요. 기록이 시트에 저장됩니다.'); else syMsg('Connected, but the secret key does not match.','연결은 됐지만 비밀 키가 맞지 않아요.'); }).catch(function(){ syMsg('Could not reach the URL. Check the address and the deployment access setting.','주소에 연결하지 못했어요. 주소와 배포 접근 설정을 확인해 주세요.'); }); }
+  if(b.id==='btnSyAll'){ Q.sent={}; Q.map={}; persistQ(); syncScan(); syMsg('Sending all records…','전체 기록을 보내는 중…'); return; }
+  if(b.id==='btnPull'){ return pull(true).then(function(n){ if(n>0) renderLog(); var e=$('#expNote'); if(e) e.textContent=n<0?P('Could not reach the sheet.','시트에 연결하지 못했어요.'):(n?P('Loaded '+n+' updated item(s) from the sheet.','시트에서 '+n+'개 항목을 불러왔어요.'):P('Already up to date.','이미 최신이에요.')); }); }
   if(b.id==='btnStart') return begin();
   if(b.id==='btnResume') return resume();
-  if(b.dataset.shift){ S.shift=b.dataset.shift; loadRec(); return render(); }
+  if(b.dataset.shift){ S.shift=b.dataset.shift; loadRec(); render(); return pull(); }
   if(b.dataset.lang){ S.lang=b.dataset.lang; saveSettings(); renderVset(); return render(); }
   if(b.dataset.unit){ S.unit=b.dataset.unit; saveSettings(); return render(); }
   if(b.dataset.ui){ S.ui=b.dataset.ui; saveSettings(); renderVset(); return render(); }
@@ -1125,6 +1252,7 @@ document.addEventListener('click',function(e){
   if(b.id==='btnCopy') return copyTable();
   if(b.id==='btnReset'){ S.rules=JSON.parse(JSON.stringify(DEFAULT_RULES)); saveSettings(); return render(); }
   if(b.dataset.jump!=null){
+    if(S.view) return;
     var ji=parseInt(b.dataset.jump,10);
     if(S.mode==='form'){ S.tab='run'; S.openSec[ITEMS[ji].sec]=true; showTab(); var tn=$('#fi-'+ji); if(tn) tn.scrollIntoView({block:'center'}); return; }
     S.idx=ji; S.running=true; S.paused=false; S.tab='run'; showTab(); return present('');
@@ -1155,6 +1283,8 @@ document.addEventListener('change',function(e){
     return updateFormMeta();
   }
   if(t.dataset&&t.dataset.rule){ var v=parseFloat(t.value); if(!isNaN(v)){ var tmp=t.dataset.rule!=='sani'; S.rules[t.dataset.rule][t.dataset.k]=(tmp&&S.unit==='C')?Math.round(cToF(v)*100)/100:v; saveSettings(); renderRules(); } return; }
+  if(t.dataset&&t.dataset.sync){ var f=t.dataset.sync, nv=t.value.trim(); if(f==='url'&&nv&&!/^https:\/\//.test(nv)){ syMsg('The address must start with https://','주소는 https:// 로 시작해야 해요.'); return; } var chg=(S.sync[f]!==nv); S.sync[f]=nv; saveSettings(); if(chg&&(f==='url'||f==='key')){ Q.sent={}; Q.map={}; persistQ(); } if(chg&&f==='who'){ Q.sent={}; Q.map={}; persistQ(); } if(chg&&syncOn()){ syncScan(); pull(); } updateBadge(); return; }
+  if(t.id==='syOn'){ S.sync.on=t.checked; saveSettings(); if(t.checked){ syncScan(); pull(); } updateBadge(); return; }
   if(t.id==='optAuto'){ S.autoYN=t.checked; saveSettings(); }
   if(t.id==='optHands'){ S.handsFree=t.checked; saveSettings(); }
 });
@@ -1173,10 +1303,14 @@ $('#sayForm').addEventListener('submit',function(e){
   e.preventDefault(); var i=$('#say'), v=i.value.trim(); if(!v) return; i.value='';
   addChat('me',v); route(v);
 });
-window.CZ={S:S,ITEMS:ITEMS,setMode:setMode,route:route,parseNum:parseNum,parseYN:parseYN,begin:begin,buildRows:buildRows,evalRule:evalRule,ruleText:ruleText,fToC:fToC,cToF:cToF,pn:pn,dv:dv,fmt:fmt,B:B};
+window.CZ={S:S,ITEMS:ITEMS,setMode:setMode,route:route,parseNum:parseNum,parseYN:parseYN,begin:begin,buildRows:buildRows,evalRule:evalRule,Q:Q,syncScan:syncScan,flush:flush,pull:pull,openView:openView,exitView:exitView,historyList:historyList,ruleText:ruleText,fToC:fToC,cToF:cToF,pn:pn,dv:dv,fmt:fmt,B:B};
 renderVset();
 try{ if('speechSynthesis' in window&&speechSynthesis.addEventListener) speechSynthesis.addEventListener('voiceschanged',renderVset); }catch(e){}
 showTab(); setState('idle');
+if(syncOn()){ syncScan(); pull(); }
+setInterval(function(){ if(document.hidden) return; if(syncOn()){ if(qCount()) flush(); if(!S.running&&!editing()) pull(); } },45000);
+document.addEventListener('visibilitychange',function(){ if(!document.hidden&&syncOn()){ flush(); if(!S.running&&!editing()) pull(); } });
+window.addEventListener('online',function(){ if(syncOn()) flush(); });
 })();
 </script>
 
