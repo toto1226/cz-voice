@@ -281,7 +281,7 @@ yn('temp','Ice Cream Box frozen? (Y/N)','아이스크림 박스가 얼어 있다
  ['Liquor Room','주류 창고','none'],['Dish machine lollipop temp only','식기세척기(롤리팝 스트립)','dish']
 ].forEach(function(t){ tnum('temp',t[0],t[1]+' 온도는 몇 도입니까?',t[2],'°F',t[1]); });
 tnum('temp','Bar 3-sink Ecosan 50 (chlorine), dip 7 seconds','바 3구 싱크 소독액(Ecosan 50, 염소)은 몇 피피엠입니까? 7초 담금 기준입니다.','sani','ppm','바 3구 싱크 소독액 염소 (7초 담금)');
-yn('temp','4 probe thermometers on cooks line set to Fahrenheit','조리라인 프로브 온도계 4개가 화씨로 설정되어 있다.');
+yn('temp','Probe thermometers on cooks line are calibrated and verified accurate','조리라인 프로브 온도계(탐침온도계)가 교정(캘리브레이션)되어 정확하게 확인되었다.');
 add({sec:'temp',type:'text',key:'facnotes',nm:'시설 특이사항·시정조치',qen:'Any facility notes or corrective actions? Say none if there are none.',en:'Facility Notes & Corrective Actions',ko:'시설 특이사항이나 시정조치가 있으면 말씀해 주세요. 없으면 없음이라고 하세요.'});
 
 yn('beh',"Produce washed using Ecolab's Victory system prior to use",'채소·과일을 사용 전에 Ecolab Victory 시스템으로 세척했다.');
@@ -298,7 +298,7 @@ yn('beh','Hygiene: open wounds are covered','상처 부위가 덮여 있다.');
 yn('beh','Hygiene: hats worn by all cooks & dish','조리·설거지 담당 모두 모자를 착용했다.');
 yn('beh','Hygiene: proper use of cut / disposable gloves','절단방지·일회용 장갑을 올바르게 사용하고 있다.');
 yn('beh','Towels in use or in sani buckets','행주가 사용 중이거나 소독 양동이에 들어 있다.');
-yn('beh','All hot products heated to 165 with hot hold times','모든 뜨거운 제품이 165도까지 가열되었고, 핫홀드 시간이 지켜졌다.');
+yn('beh','All hot products heated to 165°F (74°C) with hot hold times','모든 뜨거운 제품이 74°C(165°F)까지 가열되었고, 핫홀드 시간이 지켜졌다.');
 yn('beh','No sick / symptomatic employees / managers at work','아프거나 증상이 있는 직원·매니저가 근무하지 않는다.');
 
 add({sec:'line',type:'multi',min:5,rule:'coldhold',unit:'°F',nm:'냉장 보관 제품 내부 온도',qen:'Please say the internal temperature of each cold-held product, one at a time.',en:'All products meet cold holding internal temperatures (min. 5 temps)',ko:'냉장 보관 제품의 내부 온도를 하나씩 말씀해 주세요.'});
